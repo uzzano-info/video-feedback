@@ -26,7 +26,9 @@ button{cursor:pointer}
 .banner.info{border-color:#24527a;background:#13283a;color:#a9d4ff}
 .banner.ok{border-color:#1f5b40;background:#11291e;color:#8be3b7}
 .stage{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9;max-height:62vh;width:100%}
-.stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.stage iframe,.stage video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;object-fit:contain}
+.tc{font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:.5px;color:var(--text)}
+.precise{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .stage .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);text-align:center;padding:20px}
 canvas.draw{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .stage.drawing canvas.draw{pointer-events:auto;cursor:crosshair}
@@ -113,9 +115,16 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)}
       </div>
     </div>
     <div class="timerow">
+      <span class="precise" id="precise" hidden>
+        <span class="tc" id="tc">00:00:00:00</span>
+        <button class="btn" id="prevF" title="1프레임 뒤로 (←, Shift 1초)">◀ 1프레임</button>
+        <button class="btn" id="nextF" title="1프레임 앞으로 (→, Shift 1초)">1프레임 ▶</button>
+        <button class="btn" id="inBtn" title="구간 시작 (I)">⇤ 구간 시작 I</button>
+        <button class="btn" id="outBtn" title="구간 끝 (O)">구간 끝 O ⇥</button>
+      </span>
       <label>시간 <input id="tStart" placeholder="예: 1:23"></label>
       <label>~ 끝 (선택) <input id="tEnd" placeholder="예: 1:30"></label>
-      <span class="hint">플레이어 아래에 나오는 시간을 적어 주세요 (분:초 또는 00:01:23:15)</span>
+      <span class="hint" id="timeHint">플레이어 아래에 나오는 시간을 적어 주세요 (분:초 또는 00:01:23:15)</span>
     </div>
     <div class="card">
       <div class="head" id="head">시간을 적고 피드백을 남겨 주세요</div>
@@ -126,7 +135,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)}
       </div>
       <div class="state" id="state">Enter로 남기기 · Shift+Enter 줄바꿈 · 남긴 피드백은 이 브라우저에 저장돼요</div>
     </div>
-    <div class="keys"><kbd>T</kbd> 시간 칸 · <kbd>M</kbd> 피드백 쓰기 · <kbd>Enter</kbd> 남기기 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>D</kbd> 화면에 그리기 · <kbd>Esc</kbd> 그리기 끝내기</div>
+    <div class="keys" id="keys"><kbd>T</kbd> 시간 칸 · <kbd>M</kbd> 피드백 쓰기 · <kbd>Enter</kbd> 남기기 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>D</kbd> 화면에 그리기 · <kbd>Esc</kbd> 그리기 끝내기</div>
   </main>
   <aside class="panel">
     <div class="ph"><b>피드백</b><span class="cnt" id="cnt"></span></div>
@@ -140,6 +149,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)}
 </div>
 <div class="modal" id="modal" hidden><div class="mbox" id="mbox"></div></div>
 <div class="toast" id="toast"></div>
+<script src="config.js"></script>
 <script>
 'use strict';
 /* 영상 피드백 (GitHub Pages) — 서버·로그인 없이 동작
@@ -200,12 +210,72 @@ function openVideo(v, opts = {}) {
   $('#title').replaceChildren(h('span', { class: 'proj', text: '영상 피드백' }), h('span', { class: 'sep', text: '·' }), h('span', { text: v.name }));
   document.title = v.name + ' · 영상 피드백';
   const stage = $('#stage');
-  stage.querySelectorAll('iframe').forEach(f => f.remove());
+  stage.querySelectorAll('iframe,video').forEach(f => f.remove());
   $('#stageEmpty').hidden = true;
-  stage.prepend(h('iframe', { src: `https://drive.google.com/file/d/${encodeURIComponent(v.id)}/preview`, allow: 'autoplay; fullscreen', allowfullscreen: true }));
+  lock = null; player = null;
+  const key = window.FB_DRIVE_KEY || '';
+  if (key) usePrecise(v, key); else useDrivePlayer(v);
   if (!opts.keepUrl) history.replaceState(null, '', linkFor(v));
   remember(); renderAll();
 }
+
+/* ---------- 플레이어 ---------- */
+// 정확 모드: 드라이브 API로 영상을 직접 재생 → 재생 시간을 따라가요 (I/O, 1프레임 이동, Space)
+// 기본 모드: 드라이브 플레이어 → 시간을 직접 적어요
+let player = null, vid = null, lock = null;   // lock: 피드백을 쓰기 시작한 시점 {start, end}
+const frameAt = t => Math.max(0, Math.floor((t || 0) / rate.fd + 1e-4));
+const frameTime = n => (n + 0.5) * rate.fd;
+function useDrivePlayer(v, reason) {
+  player = 'drive'; vid = null;
+  $('#stage').querySelectorAll('iframe,video').forEach(f => f.remove());
+  $('#stage').prepend(h('iframe', { src: `https://drive.google.com/file/d/${encodeURIComponent(v.id)}/preview`, allow: 'autoplay; fullscreen', allowfullscreen: true }));
+  $('#precise').hidden = true; $('#timeHint').hidden = false;
+  $('#keys').innerHTML = '<kbd>T</kbd> 시간 칸 · <kbd>M</kbd> 피드백 쓰기 · <kbd>Enter</kbd> 남기기 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>D</kbd> 화면에 그리기 · <kbd>Esc</kbd> 그리기 끝내기';
+  if (reason) toast(reason, true);
+}
+function usePrecise(v, key) {
+  player = 'video';
+  const el = h('video', { controls: true, playsinline: true, preload: 'auto' });
+  let tries = 0;
+  const src = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(v.id)}?alt=media&key=${encodeURIComponent(key)}`;
+  el.crossOrigin = 'anonymous';
+  el.addEventListener('error', () => {
+    if (tries++ === 0) { el.removeAttribute('crossorigin'); el.src = src; return; }
+    useDrivePlayer(v, '정확 재생을 불러오지 못해서 드라이브 플레이어로 바꿨어요 (공유 설정 확인)');
+  });
+  el.addEventListener('pause', () => { if (!lock) syncTime(); });
+  el.addEventListener('seeked', () => { if (!lock) syncTime(); });
+  el.src = src; vid = el;
+  $('#stage').prepend(el);
+  $('#precise').hidden = false; $('#timeHint').hidden = true;
+  $('#keys').innerHTML = '<kbd>Space</kbd> 재생·멈춤 · <kbd>←</kbd><kbd>→</kbd> 1프레임 (<kbd>Shift</kbd> 1초) · <kbd>M</kbd> 피드백 쓰기 · <kbd>I</kbd><kbd>O</kbd> 구간 시작·끝 · <kbd>Enter</kbd> 남기기 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>D</kbd> 화면에 그리기 · <kbd>Esc</kbd> 취소';
+}
+function syncTime() {   // 아직 쓰기 시작 전이면 시간 칸이 재생 위치를 따라가요
+  if (!vid || lock) return;
+  $('#tStart').value = tcOf(frameAt(vid.currentTime)); $('#tEnd').value = '';
+  renderHead();
+}
+function tick() {
+  if (vid) { $('#tc').textContent = tcOf(frameAt(vid.currentTime)); if (!lock && !vid.paused) syncTime(); }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+function startLock() {   // 피드백 쓰기 시작: 멈추고 지금 시점을 고정
+  if (!vid) return;
+  vid.pause();
+  if (!lock) { lock = { start: frameAt(vid.currentTime), end: null }; $('#tStart').value = tcOf(lock.start); $('#tEnd').value = ''; }
+  renderHead();
+}
+function setIn() { if (!vid) return; vid.pause(); const f = frameAt(vid.currentTime); lock = { start: f, end: lock && lock.end > f ? lock.end : null }; $('#tStart').value = tcOf(f); $('#tEnd').value = lock.end != null ? tcOf(lock.end) : ''; renderHead(); toast('구간 시작 ' + labelOf(f)); }
+function setOut() {
+  if (!vid) return; vid.pause(); const f = frameAt(vid.currentTime);
+  if (!lock) lock = { start: f, end: null };
+  if (f <= lock.start) return toast('구간 끝은 시작보다 뒤여야 해요', true);
+  lock.end = f; $('#tEnd').value = tcOf(f); renderHead(); toast('구간 끝 ' + labelOf(f));
+}
+function stepBy(n) { if (!vid) return; vid.pause(); vid.currentTime = frameTime(Math.max(0, frameAt(vid.currentTime) + n)); }
+$('#prevF').onclick = () => stepBy(-1); $('#nextF').onclick = () => stepBy(1);
+$('#inBtn').onclick = setIn; $('#outBtn').onclick = setOut;
 
 /* ---------- 피드백 링크 (보내기·받기) ---------- */
 const b64u = {
@@ -286,7 +356,7 @@ function posOf(e) { const b = cv.getBoundingClientRect(); const c = v => Math.mi
 cv.addEventListener('pointerdown', e => { if (!drawMode) return; cv.setPointerCapture(e.pointerId); const p = posOf(e); inProgress = { tool, color: DRAW_COLOR, points: [p, p] }; drawOverlay(); });
 cv.addEventListener('pointermove', e => { if (!inProgress) return; const p = posOf(e); if (tool === 'pen') inProgress.points.push(p); else inProgress.points[1] = p; drawOverlay(); });
 cv.addEventListener('pointerup', () => { if (!inProgress) return; const s = inProgress; inProgress = null; const [a, b] = [s.points[0], s.points[s.points.length - 1]]; if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.005 || s.points.length > 3) draftShapes.push(s); drawOverlay(); renderHead(); });
-function enterDraw() { if (!video) return toast('먼저 영상을 불러와 주세요', true); viewShapes = null; activeId = null; drawMode = true; $('#stage').classList.add('drawing'); $('#drawBar').hidden = false; $('#drawBtn').classList.add('on'); drawOverlay(); renderList(); }
+function enterDraw() { if (!video) return toast('먼저 영상을 불러와 주세요', true); startLock(); viewShapes = null; activeId = null; drawMode = true; $('#stage').classList.add('drawing'); $('#drawBar').hidden = false; $('#drawBtn').classList.add('on'); drawOverlay(); renderList(); }
 function exitDraw() { drawMode = false; inProgress = null; $('#stage').classList.remove('drawing'); $('#drawBar').hidden = true; $('#drawBtn').classList.remove('on'); drawOverlay(); renderHead(); }
 $('#drawBtn').onclick = () => drawMode ? exitDraw() : enterDraw();
 $('#drawDone').onclick = exitDraw;
@@ -303,24 +373,29 @@ function renderChips() {
 }
 function renderHead() {
   const sf = parseTime($('#tStart').value), ef = parseTime($('#tEnd').value);
-  let t = (sf != null && !isNaN(sf)) ? labelOf(sf) + (ef != null && !isNaN(ef) && ef > sf ? ' ~ ' + labelOf(ef) : '') + ' 에 남김  (타임코드 ' + tcOf(sf) + ')' : '시간을 적고 피드백을 남겨 주세요';
+  const L = vid ? tcOf : labelOf;
+  let t = (sf != null && !isNaN(sf)) ? L(sf) + (ef != null && !isNaN(ef) && ef > sf ? ' ~ ' + L(ef) : '') + ' 에 남김' + (vid ? '' : '  (타임코드 ' + tcOf(sf) + ')') : (vid ? '재생하다 고칠 곳에서 M 또는 I·O' : '시간을 적고 피드백을 남겨 주세요');
   if (draftShapes.length) t += `  · ✏️ 그림 ${draftShapes.length}개`;
   $('#head').textContent = t;
 }
-['#tStart', '#tEnd'].forEach(id => { $(id).addEventListener('input', renderHead); $(id).addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); memoEl.focus(); } }); });
+['#tStart', '#tEnd'].forEach(id => { $(id).addEventListener('input', () => {
+    if (vid) { const sf = parseTime($('#tStart').value), ef = parseTime($('#tEnd').value);   // 직접 적으면 그 시간으로 고정하고 이동
+      if (sf != null && !isNaN(sf)) { lock = { start: sf, end: ef != null && !isNaN(ef) && ef > sf ? ef : null }; if (id === '#tStart') { vid.pause(); vid.currentTime = frameTime(sf); } } }
+    renderHead(); }); $(id).addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); memoEl.focus(); } }); });
 function setState(st, msg) {
   const s = $('#state'), now = new Date().toTimeString().slice(0, 8);
   const m = { saved: ['saved', `✓ 저장됨 ${now} (이 브라우저) — 다 남겼으면 📤 피드백 보내기`], error: ['error', '⚠ ' + (msg || '저장하지 못했어요')], draft: ['', '✎ 작성 중'] }[st] || ['', 'Enter로 남기기 · Shift+Enter 줄바꿈 · 남긴 피드백은 이 브라우저에 저장돼요'];
   s.className = 'state ' + m[0]; s.textContent = m[1];
 }
 memoEl.addEventListener('input', () => setState(memoEl.value ? 'draft' : ''));
+memoEl.addEventListener('focus', startLock);
 memoEl.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); save(); } if (e.key === 'Escape') memoEl.blur(); });
 $('#saveBtn').onclick = save;
 function save() {
   if (!video) return toast('먼저 영상을 불러와 주세요', true);
   const memo = memoEl.value.trim();
   if (!memo) { toast('내용을 적어 주세요', true); return memoEl.focus(); }
-  const sf = parseTime($('#tStart').value), ef = parseTime($('#tEnd').value);
+  const sf = vid && lock ? lock.start : parseTime($('#tStart').value), ef = vid && lock ? lock.end : parseTime($('#tEnd').value);
   if (sf == null || isNaN(sf)) { toast('고칠 곳의 시간을 적어 주세요 (예: 1:23)', true); return $('#tStart').focus(); }
   if (isNaN(ef)) { toast('끝 시간 형식을 확인해 주세요 (예: 1:30)', true); return $('#tEnd').focus(); }
   const author = $('#author').value.trim();
@@ -329,6 +404,7 @@ function save() {
   items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), start_frame: sf, end_frame: ef != null && ef > sf ? ef : null,
     type: selType || '기타', memo, author, drawing: draftShapes, created_at: new Date().toISOString() });
   saveLocal();
+  lock = null; if (vid) syncTime();
   memoEl.value = ''; $('#tEnd').value = ''; draftShapes = []; selType = null; renderChips(); renderHead(); drawOverlay(); renderAll(); setState('saved'); memoEl.blur();
 }
 
@@ -347,9 +423,10 @@ function renderList() {
   list.replaceChildren(...shown.map(it => {
     const el = h('div', { class: 'item' + (activeId === it.id ? ' active' : ''), style: `--c:${COLORS[it.type] || COLORS['기타']}`, onclick: () => {
       if (drawMode) return; activeId = activeId === it.id ? null : it.id; viewShapes = activeId && it.drawing && it.drawing.length ? it.drawing : null;
-      if (activeId) toast(`${labelOf(it.start_frame)} — 플레이어에서 이 시간으로 옮겨 확인하세요` + (it.drawing && it.drawing.length ? ' (그림이 화면에 표시돼요)' : ''));
+      if (activeId && vid) { vid.pause(); vid.currentTime = frameTime(it.start_frame); }
+      else if (activeId) toast(`${labelOf(it.start_frame)} — 플레이어에서 이 시간으로 옮겨 확인하세요` + (it.drawing && it.drawing.length ? ' (그림이 화면에 표시돼요)' : ''));
       drawOverlay(); renderList(); } },
-      h('div', { class: 'r1' }, h('span', { class: 't', title: '타임코드 ' + tcOf(it.start_frame) + (it.end_frame != null ? ' ~ ' + tcOf(it.end_frame) : ''), text: labelOf(it.start_frame) + (it.end_frame != null ? ' ~ ' + labelOf(it.end_frame) : '') }), h('span', { class: 'ty', text: it.type }),
+      h('div', { class: 'r1' }, h('span', { class: 't', title: '타임코드 ' + tcOf(it.start_frame) + (it.end_frame != null ? ' ~ ' + tcOf(it.end_frame) : ''), text: (vid ? tcOf : labelOf)(it.start_frame) + (it.end_frame != null ? ' ~ ' + (vid ? tcOf : labelOf)(it.end_frame) : '') }), h('span', { class: 'ty', text: it.type }),
         it.received ? h('span', { class: 'badge', text: '받음' }) : null),
       h('div', { class: 'memo', text: it.memo }),
       h('div', { class: 'meta' }, h('span', { text: '👤 ' + (it.author || '') }), it.drawing && it.drawing.length ? h('span', { text: `✏️ 그림 ${it.drawing.length}` }) : null,
@@ -425,6 +502,15 @@ window.addEventListener('keydown', e => {
   if (!$('#modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (vid && !drawMode) {
+    const step = e.shiftKey ? rate.base : 1;
+    if (e.code === 'Space' || e.code === 'KeyK') { e.preventDefault(); vid.paused ? vid.play().catch(() => {}) : vid.pause(); return; }
+    if (e.code === 'ArrowLeft') { e.preventDefault(); return stepBy(-step); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); return stepBy(step); }
+    if (e.code === 'KeyI') { e.preventDefault(); return setIn(); }
+    if (e.code === 'KeyO') { e.preventDefault(); return setOut(); }
+    if (e.code === 'Escape' && lock) { e.preventDefault(); lock = null; draftShapes = []; drawOverlay(); syncTime(); return; }
+  }
   if (e.code === 'KeyD') { e.preventDefault(); drawMode ? exitDraw() : enterDraw(); }
   else if (e.code === 'Escape' && drawMode) { e.preventDefault(); exitDraw(); }
   else if (e.code === 'KeyT') { e.preventDefault(); $('#tStart').focus(); }
@@ -446,7 +532,8 @@ window.addEventListener('hashchange', () => { const m = /#fb=([A-Za-z0-9_-]+)/.e
   if (id && /^[A-Za-z0-9_-]{10,}$/.test(id)) {
     openVideo({ id, name: (q.get('n') || '영상').slice(0, 80), fps: FPS.some(f => f[0] === q.get('f')) ? q.get('f') : '30000/1001' }, { keepUrl: true });
     const b = $('#banner'); b.className = 'banner info'; b.hidden = false;
-    b.replaceChildren('▶ 영상을 재생하다 고칠 곳에서 멈추고, 플레이어 아래 시간을 "시간" 칸에 적어 피드백을 남겨 주세요. 화면에 그려서 표시할 수도 있어요 (D). 다 남겼으면 오른쪽 📤 피드백 보내기!',
+    b.replaceChildren(player === 'video' ? '▶ 영상을 보다가 고칠 곳에서 M(또는 메모 칸 클릭)을 누르면 그 시간이 자동으로 들어가요. 구간은 I·O, 화면 표시는 D. 다 남겼으면 오른쪽 📤 피드백 보내기!'
+      : '▶ 영상을 재생하다 고칠 곳에서 멈추고, 플레이어 아래 시간을 "시간" 칸에 적어 피드백을 남겨 주세요. 화면에 그려서 표시할 수도 있어요 (D). 다 남겼으면 오른쪽 📤 피드백 보내기!',
       h('button', { class: 'btn ghost', text: '닫기', onclick: () => b.hidden = true }));
   } else addDialog();
 })();

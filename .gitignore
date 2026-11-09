@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.DS_Store
+# 개인 데이터는 올리지 않아요
+AI영상 편집/작업/feedback/
+AI영상 편집/작업/markers/
+AI영상 편집/작업/productions/
+AI영상 편집/컨펌본/*
+AI영상 편집/타임라인/*
+AI영상 편집/소스/*
+!AI영상 편집/컨펌본/.gitkeep
+!AI영상 편집/타임라인/.gitkeep
+!AI영상 편집/소스/.gitkeep
+links.json

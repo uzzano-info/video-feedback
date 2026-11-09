@@ -1,0 +1,5 @@
+#!/bin/bash
+# Dock에서 누르면 '시작하기.command'를 터미널로 열어요
+D="$(cd "$(dirname "$0")/../../.." && pwd)"
+[ -f "$D/시작하기.command" ] || D="$HOME/Movies/AI영상 편집"
+open -a Terminal "$D/시작하기.command"

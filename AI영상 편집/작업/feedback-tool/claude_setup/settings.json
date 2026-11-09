@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 작업/feedback-tool/fb.py:*)",
+      "Bash(python3 작업/feedback-tool/fb.py *)",
+      "Bash(python3 작업/feedback-tool/fcpxml_edit.py:*)",
+      "Bash(python3 작업/feedback-tool/fcpxml_edit.py *)",
+      "Bash(python3 작업/feedback-tool/fcpxml.py:*)",
+      "Bash(xmllint:*)",
+      "Bash(ffprobe:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/작업/feedback-tool/fb.py\" status --hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

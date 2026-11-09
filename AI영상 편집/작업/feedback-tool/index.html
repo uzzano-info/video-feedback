@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>영상 피드백</title>
+<style>
+:root{
+  --bg:#0d0f14; --panel:#14171e; --card:#1a1e27; --line:#262b37; --line2:#313848;
+  --text:#e9ebf0; --sub:#9aa1b2; --dim:#697085;
+  --accent:#ff7a1a; --accent-soft:rgba(255,122,26,.16);
+  --ok:#3ecf8e; --warn:#f5b53d; --danger:#ff5d5d;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;-webkit-font-smoothing:antialiased}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 370px;height:100vh}
+.main{display:flex;flex-direction:column;min-width:0;padding:14px 18px 10px;gap:10px;overflow-y:auto}
+.top{display:flex;align-items:center;gap:12px}
+.title{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title .proj{color:var(--sub);font-weight:500}
+.title .sep{color:var(--dim);margin:0 6px}
+select{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;max-width:380px}
+select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.topbtn{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--sub);white-space:nowrap}
+.topbtn:hover{color:var(--text);border-color:#4a5368}
+.topbtn.share{color:#9fd3ff}
+.item .who{font-size:12px;color:#9fd3ff;margin-top:3px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal[hidden]{display:none}
+.mbox{background:var(--panel,#161a22);border:1px solid var(--line2);border-radius:14px;padding:18px 20px;width:min(560px,92vw);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.mbox h3{margin:0;font-size:16px}
+.mbox p,.mbox li{margin:0;color:var(--sub);font-size:13px;line-height:1.6}
+.mbox ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.mbox label{font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:4px}
+.mbox input,.mbox select{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:7px 10px;color:var(--text);font:inherit;max-width:none}
+.mbox .linkbox{font-family:var(--mono);font-size:12px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;word-break:break-all;user-select:all}
+.mbox .mrow{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;align-items:center}
+.mbox .msg{font-size:13px;min-height:18px}
+.mbox .msg.err{color:#ffb3b3}.mbox .msg.ok{color:#7be0b0}
+.banner{border:1px solid #5b4420;background:#2a2112;color:#f5d28a;border-radius:8px;padding:8px 12px;font-size:13px}
+.banner.err{border-color:#6b2a2a;background:#2a1414;color:#ffb3b3}
+/* 영상 + 그리기 */
+.stage{flex:1 1 auto;min-height:220px;background:#000;border-radius:10px;overflow:hidden;position:relative}
+.stage video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
+canvas.draw{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.stage.drawing canvas.draw{pointer-events:auto;cursor:crosshair}
+.stage.drawing{box-shadow:inset 0 0 0 2px var(--accent)}
+.drawbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:rgba(20,23,30,.94);border:1px solid var(--line2);border-radius:10px;padding:4px;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.drawbar .lbl{font-size:12px;color:var(--accent);font-weight:700;padding:0 8px}
+.drawbar button{background:transparent;border:1px solid transparent;border-radius:7px;padding:4px 10px;font-size:13px;color:var(--sub)}
+.drawbar button:hover{color:var(--text);background:#232836}
+.drawbar button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.drawbar button.done{background:var(--accent);color:#1b0f04;font-weight:700}
+.drawbar .sp{width:1px;height:20px;background:var(--line2);margin:0 2px}
+/* 클립 스트립 */
+.strip{position:relative;height:32px;background:#12151c;border:1px solid var(--line);border-radius:8px;cursor:pointer;flex:none;overflow:hidden}
+.seg{position:absolute;top:0;bottom:0;border-left:1px solid rgba(0,0,0,.55)}
+.seg.main{background:#2b3a55}
+.seg.main.alt{background:#34476a}
+.seg.broll{background:#5a4a33}
+.seg.gap{background:repeating-linear-gradient(45deg,#171a22,#171a22 4px,#1c2029 4px,#1c2029 8px)}
+.rng{position:absolute;bottom:0;height:6px;background:var(--tc);opacity:.85;z-index:2;border-radius:2px}
+.rng.done{opacity:.3}
+.draftrng{position:absolute;top:0;bottom:0;background:rgba(255,122,26,.22);border-left:2px solid var(--accent);border-right:2px solid var(--accent);z-index:2;pointer-events:none}
+.mk{position:absolute;top:0;bottom:0;width:3px;margin-left:-1px;background:var(--tc);box-shadow:0 0 6px var(--tc);cursor:pointer;z-index:3}
+.mk.done{opacity:.35;box-shadow:none}
+.mk.skipped{box-shadow:0 0 0 1px var(--warn)}
+.mk::before{content:"";position:absolute;left:-3px;top:-1px;width:9px;height:9px;border-radius:50%;background:inherit}
+.playhead{position:absolute;top:-1px;bottom:-1px;width:2px;background:#fff;z-index:4;pointer-events:none;box-shadow:0 0 4px rgba(255,255,255,.6)}
+/* 현재 위치 줄 */
+.posrow{display:flex;align-items:center;gap:10px;flex:none}
+.posrow .info{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.posrow .tm{font-family:var(--mono);font-weight:600}
+.posrow .sub{color:var(--sub)}
+.pill{display:inline-block;font-size:11px;padding:0 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:4px;vertical-align:1px;font-weight:600}
+.btn{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 12px;white-space:nowrap}
+.btn:hover{border-color:#4a5368}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1b0f04;font-weight:700}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.primary:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--sub);padding:2px 8px;font-size:12px}
+.btn.ghost:hover{color:var(--text);border-color:var(--line2)}
+.btn.small{padding:3px 10px;font-size:12.5px;border-radius:999px;color:var(--sub)}
+.btn.small:hover{color:var(--text)}
+.btn.small.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+/* 입력 카드 */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;flex:none}
+.cardhead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;min-height:24px}
+.cardhead .dh{font-family:var(--mono);font-weight:700;color:var(--sub)}
+.cardhead.frozen .dh{color:var(--accent)}
+.cardhead .df{color:var(--sub);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cardhead .grow{flex:1}
+#badges{display:flex;gap:6px}
+.badge{font-size:11.5px;border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:0 8px;white-space:nowrap}
+.badge button{background:none;border:0;color:inherit;padding:0 0 0 4px;font-size:11px}
+.row2{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.chip{background:var(--card);border:1px solid var(--line2);border-radius:999px;padding:3px 12px;font-size:13px;color:var(--text)}
+.chip i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--tc);margin-right:6px;vertical-align:1px}
+.chip:hover{border-color:#566079}
+.chip.on{background:color-mix(in srgb,var(--tc) 18%,transparent);border-color:var(--tc);color:var(--tc);font-weight:600}
+.tools{display:flex;gap:6px}
+.inputwrap{position:relative;display:flex;gap:10px;align-items:stretch}
+textarea{flex:1;min-width:0;resize:none;background:#0f1218;border:1.5px solid var(--line2);border-radius:10px;padding:10px 12px;line-height:1.5}
+textarea::placeholder{color:var(--dim)}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.inputwrap .btn.primary{align-self:flex-end;padding:8px 18px}
+.hint{font-size:12px;color:var(--dim);margin-top:6px}
+.ac{position:absolute;left:0;bottom:calc(100% + 4px);width:min(520px,calc(100% - 100px));background:#202533;border:1px solid var(--line2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden;z-index:20}
+.ac div{padding:6px 12px;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac div.on{background:var(--accent-soft);color:var(--accent)}
+.keys{flex:none;font-size:12px;color:var(--dim);display:flex;flex-wrap:wrap;gap:4px 14px;padding:2px 2px 0}
+kbd{font-family:var(--mono);font-size:11px;background:#1b1f29;border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:0 5px;color:var(--sub);margin-right:3px}
+/* 오른쪽 패널 */
+.panel{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;height:100vh}
+.panel-head{padding:14px 14px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.panel-head .row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.panel-head h2{margin:0;font-size:15px}
+.count{font-size:13px;color:var(--sub)}
+.count b{color:var(--accent)}
+.search{width:100%;background:#0f1218;border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-size:13px}
+.search:focus{outline:none;border-color:var(--accent)}
+.segctl{display:flex;background:#0f1218;border:1px solid var(--line2);border-radius:8px;padding:2px;gap:2px}
+.segctl button{flex:1;background:none;border:0;border-radius:6px;padding:3px 0;font-size:12px;color:var(--sub)}
+.segctl button.on{background:#262c3a;color:var(--text);font-weight:600}
+.tfilter{display:flex;flex-wrap:wrap;gap:4px}
+.tfilter button{background:none;border:1px solid var(--line2);border-radius:999px;padding:1px 8px;font-size:11.5px;color:var(--sub)}
+.tfilter button i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--tc);margin-right:4px;vertical-align:1px}
+.tfilter button.on{border-color:var(--tc);color:var(--tc)}
+.claude{display:flex;flex-direction:column;gap:4px}
+.claude .btn.primary{width:100%;padding:8px 10px;font-size:13.5px}
+.claude .btn.primary:disabled{opacity:.55;cursor:default}
+.claude-opts{display:flex;align-items:center;gap:2px;font-size:12px;color:var(--sub)}
+.claude-opts label{display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.claude-opts .grow{flex:1}
+/* Claude Code 작업 카드 */
+.job{margin:8px 12px 0;border:1px solid var(--line2);border-radius:12px;background:#151b26;padding:10px 12px;font-size:12.5px;position:relative}
+.job.running{border-color:#3b5b8a;box-shadow:0 0 0 1px rgba(77,141,255,.15)}
+.job.done{border-color:#2c6b4d}
+.job.failed,.job.interrupted{border-color:#7a3434}
+.job .jh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.job .jh b{font-size:13px}
+.job .jh .tm{font-family:var(--mono);color:var(--sub);font-size:12px}
+.job .jh .grow{flex:1}
+.job .spin{width:12px;height:12px;border:2px solid #4d8dff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.job .log{font-family:var(--mono);font-size:11.5px;color:#b9c3d6;max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;background:#0f141d;border-radius:8px;padding:6px 8px}
+.job .log.full{max-height:340px}
+.job .log .text{color:#e9ebf0}
+.job .log .warn{color:#f5b53d}
+.job .log .end{color:#3ecf8e;font-weight:700}
+.job .report{white-space:pre-wrap;word-break:break-word;background:#0f141d;border-radius:8px;padding:8px 10px;margin-top:6px;color:var(--text);font-size:12.5px;max-height:220px;overflow-y:auto}
+.job .err{color:#ffb3b3;white-space:pre-wrap;word-break:break-word;margin-top:6px}
+.job .jb{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.job .jb .btn{font-size:12px;padding:4px 10px}
+.notice{margin:8px 12px 0;background:#182230;border:1px solid #2c4a6b;border-radius:10px;padding:9px 30px 9px 11px;font-size:12.5px;color:#cfe3ff;position:relative;line-height:1.6}
+.notice code{font-family:var(--mono);font-size:11.5px;color:#fff;word-break:break-all}
+.notice .x{position:absolute;right:6px;top:4px;background:none;border:0;color:var(--sub);font-size:14px}
+.list{flex:1;overflow-y:auto;padding:10px 12px 16px;display:flex;flex-direction:column;gap:8px}
+.empty{color:var(--dim);text-align:center;padding:40px 10px;font-size:13px;line-height:1.7}
+.item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--tc);border-radius:10px;padding:9px 11px;cursor:pointer;position:relative}
+.item:hover{border-color:#414a5f;border-left-color:var(--tc)}
+.item.active{box-shadow:0 0 0 1.5px var(--accent)}
+.item.done{opacity:.62}
+.item.flash{animation:flash 1.2s ease-out}
+@keyframes flash{from{background:#3a2a17}to{background:var(--card)}}
+.item .r1{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin-bottom:3px}
+.item .t{font-family:var(--mono);font-weight:700;color:var(--tc);font-size:13px;white-space:nowrap}
+.item .ty{font-size:11px;color:var(--tc);border:1px solid color-mix(in srgb,var(--tc) 55%,transparent);border-radius:999px;padding:0 7px;white-space:nowrap}
+.item .st{margin-left:auto;font-size:11px;font-weight:700;padding:0 7px;border-radius:999px;white-space:nowrap}
+.st.pending{color:var(--sub);background:#232836}
+.st.done{color:#0c2a1c;background:var(--ok)}
+.st.skipped{color:#2d2108;background:var(--warn)}
+.st.question{color:#1d1030;background:#c39bff}
+.item.question .res{color:#d6bcff}
+.savestate{margin-left:8px;font-size:12px}
+.savestate.saved{color:var(--ok)}
+.savestate.saving,.savestate.draft{color:var(--sub)}
+.savestate.error{color:#ffb3b3;font-weight:600}
+.posrow .tl{color:var(--dim);font-family:var(--mono);font-size:12px;margin-left:6px}
+.item .body{display:flex;gap:10px;align-items:flex-start}
+.item .note{flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;font-size:13.5px}
+.item .thumb{width:88px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;border:1px solid var(--line2);flex:none;background:#000}
+.item .src{margin-top:4px;font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .res{margin-top:5px;font-size:12px;color:var(--sub);border-top:1px dashed var(--line2);padding-top:5px;white-space:pre-wrap;word-break:break-word}
+.item.skipped .res{color:#e8c36f}
+.item .acts{display:none;position:absolute;right:8px;bottom:6px;gap:2px;background:var(--card);border-radius:6px}
+.item:hover .acts{display:flex}
+.acts button{background:none;border:0;color:var(--dim);font-size:12px;padding:2px 6px;border-radius:6px}
+.acts button:hover{color:var(--text);background:#262c3a}
+.acts button.ok:hover{color:var(--ok)}
+.acts button.del:hover{color:var(--danger)}
+.edit textarea{width:100%;min-height:60px;margin:4px 0}
+.edit .eb{display:flex;gap:6px;justify-content:flex-end}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#262c3a;border:1px solid var(--line2);padding:8px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:.2s;z-index:50;font-size:13px;max-width:80vw}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.toast.err{border-color:var(--danger);color:#ffb3b3}
+@media (max-width:980px){.app{grid-template-columns:1fr}.panel{height:auto;max-height:60vh}}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="main">
+    <div class="top">
+      <div class="title" id="title"><span class="proj">…</span></div>
+      <select id="videoSel" title="영상 선택"></select>
+      <button class="topbtn" id="addLinkBtn" title="구글 드라이브에 올린 영상을 링크로 불러오기">＋ 드라이브 영상</button>
+      <button class="topbtn share" id="shareBtn" title="고객사가 이 영상을 보고 피드백을 남길 수 있는 링크">🌐 고객 링크</button>
+    </div>
+    <div id="banner" class="banner" hidden></div>
+    <div class="stage" id="stage">
+      <video id="v" controls preload="auto" playsinline></video>
+      <canvas class="draw" id="draw"></canvas>
+      <div class="drawbar" id="drawBar" hidden>
+        <span class="lbl">✏️ 그리기</span>
+        <button data-tool="pen">펜</button>
+        <button data-tool="arrow">화살표</button>
+        <button data-tool="rect">네모</button>
+        <span class="sp"></span>
+        <button id="undoBtn" title="⌘Z">↶ 되돌리기</button>
+        <button id="clearDrawBtn">모두 지우기</button>
+        <span class="sp"></span>
+        <button class="done" id="drawDoneBtn">완료 (D)</button>
+      </div>
+    </div>
+    <div id="strip" class="strip" title="클릭하면 그 위치로 이동"></div>
+    <div class="posrow">
+      <button class="btn" id="prevBtn">◀ 이전 자료</button>
+      <div class="info" id="posInfo"></div>
+      <button class="btn" id="nextBtn">다음 자료 ▶</button>
+    </div>
+    <section class="card">
+      <div class="cardhead" id="cardHead">
+        <span class="dh" id="dh">00:00.0에 남김</span><span class="df" id="df"></span>
+        <span id="badges"></span>
+        <span class="grow"></span>
+        <button class="btn ghost" id="refreshPos" hidden>↻ 지금 위치로</button>
+        <button class="btn ghost" id="cancelDraft" hidden>✕ 취소</button>
+      </div>
+      <div class="row2">
+        <div class="chips" id="chips"></div>
+        <div class="tools">
+          <button class="btn small" id="inBtn" title="I">⇤ 구간 시작 I</button>
+          <button class="btn small" id="outBtn" title="O">구간 끝 O ⇥</button>
+          <button class="btn small" id="drawBtn" title="D">✏️ 그리기 D</button>
+        </div>
+      </div>
+      <div class="inputwrap">
+        <textarea id="note" rows="2" placeholder="어떻게 고칠지 적어 주세요 (예: 다른 터치 영상으로 바꿔줘)"></textarea>
+        <div class="ac" id="ac" hidden></div>
+        <button class="btn primary" id="saveBtn">남기기</button>
+      </div>
+      <div class="hint"><b>Enter</b>로 남기기 · Shift+Enter 줄바꿈 · 소스 파일명을 치면 자동완성 · 남길 때 화면 캡처가 함께 저장돼요 <span id="saveState" class="savestate"></span></div>
+    </section>
+    <div class="keys">
+      <span><kbd>Space</kbd>재생·멈춤</span>
+      <span><kbd>←</kbd><kbd>→</kbd>1프레임 (<kbd>Shift</kbd> 1초)</span>
+      <span><kbd>M</kbd>피드백 쓰기</span>
+      <span><kbd>Enter</kbd>저장</span>
+      <span><kbd>I</kbd><kbd>O</kbd>구간 시작·끝</span>
+      <span><kbd>J</kbd><kbd>L</kbd>이전·다음 자료</span>
+      <span><kbd>D</kbd>화면에 그리기</span>
+      <span><kbd>Esc</kbd>입력·그리기 끝내기</span>
+    </div>
+  </main>
+  <aside class="panel">
+    <div class="panel-head">
+      <div class="row"><h2>피드백</h2><div class="count" id="count"></div></div>
+      <input class="search" id="search" type="search" placeholder="메모 · 파일명 · 시간 검색">
+      <div class="segctl" id="statusFilter"></div>
+      <div class="tfilter" id="typeFilter"></div>
+      <div class="claude">
+        <button class="btn primary" id="askClaudeBtn" title="대기 중인 피드백을 Claude Code가 바로 반영해요 (터미널에 말할 필요 없음)">🤖 Claude Code에게 반영 맡기기</button>
+        <div class="claude-opts">
+          <label title="이 영상을 만들던 Claude Code 대화의 기억을 이어받아요 (열려 있는 대화는 건드리지 않아요)"><input type="checkbox" id="contChk" checked> 만들던 대화 이어서</label>
+          <span class="grow"></span>
+          <button class="btn ghost" id="copyCmdBtn" title="터미널의 Claude Code에 직접 붙여넣을 명령 복사">명령 복사</button>
+          <button class="btn ghost" id="exportBtn" title="리졸브: 타임라인 우클릭 ▸ Timelines ▸ Import ▸ Timeline Markers from EDL">⤓ 리졸브 마커</button>
+        </div>
+      </div>
+    </div>
+    <div id="jobBox"></div>
+    <div id="noticeBox"></div>
+    <div class="list" id="list"></div>
+  </aside>
+</div>
+<div class="modal" id="modal" hidden><div class="mbox" id="mbox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const h = (tag, props = {}, ...kids) => {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, '');
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) { if (kid == null || kid === false) continue; el.append(kid.nodeType ? kid : document.createTextNode(kid)); }
+  return el;
+};
+// 유형별 색 (리졸브 마커 색과 맞춤: 빨강·노랑·보라·파랑·청록·분홍)
+const TYPE_COLORS = { '컷 삭제': '#ff5d5d', '길이 조절': '#f5c84b', '순서 변경': '#a77bff', '자막·텍스트 수정': '#4d8dff', '클립 교체': '#2ec5d3', '기타': '#ff7eb6' };
+const TYPES = Object.keys(TYPE_COLORS);
+const tcolor = ty => TYPE_COLORS[ty] || TYPE_COLORS['기타'];
+const DRAW_COLOR = '#ff3b30';
+const v = $('#v'), noteEl = $('#note'), stage = $('#stage'), cv = $('#draw'), cx = cv.getContext('2d');
+const nfc = s => (s || '').normalize('NFC');
+
+let state = { project: '', videos: [], sources: [], warnings: [] };
+let cur = null, tl = null, items = [], lastSig = '';
+let draft = null;          // { time, end, armed, shapes: [] } — 쓰기 시작한 순간 고정
+let selType = null, editingId = null, activeId = null, saving = false;
+let drawMode = false, tool = 'arrow', inProgress = null, viewShapes = null;
+let filterStatus = 'all', filterTypes = new Set(), query = '';
+
+/* ---------- 유틸 ---------- */
+// 프레임 기준: 피드백 파일의 fps(FCPXML에서 읽음, 예: "30000/1001")
+let rate = { num: 30, den: 1, fd: 1 / 30, base: 30, tc0: 0, hasTl: false };
+function setRate(fpsStr, tcStart, hasTl) {
+  const [n, d] = String(fpsStr || '30/1').split('/').map(Number);
+  const num = n || 30, den = d || 1;
+  rate = { num, den, fd: den / num, base: Math.round(num / den), tc0: 0, hasTl: !!hasTl };
+  rate.tc0 = tcToFrames(tcStart || '00:00:00:00');
+}
+const frameAt = t => Math.max(0, Math.floor((t || 0) / rate.fd + 1e-4));   // 영상 시각 → 프레임 번호
+const frameTime = n => (n + 0.5) * rate.fd;                                  // 프레임 가운데 시각 (그 프레임이 정확히 보이게)
+function tcOf(n) {   // 프레임 번호 → HH:MM:SS:FF
+  n = Math.max(0, Math.round(n)); const b = rate.base, p = x => String(x).padStart(2, '0');
+  const f = n % b, s = Math.floor(n / b);
+  return `${p(Math.floor(s / 3600))}:${p(Math.floor(s % 3600 / 60))}:${p(s % 60)}:${p(f)}`;
+}
+function tcToFrames(tc) { const m = String(tc).split(/[:;]/).map(Number); return m.length === 4 ? ((m[0] * 3600 + m[1] * 60 + m[2]) * rate.base + m[3]) : 0; }
+const fmt = t => tcOf(frameAt(t));
+const stem = n => nfc(n).replace(/\.[^.]+$/, '');
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.className = 'toast', err ? 3500 : 2000);
+}
+async function api(url, body) {
+  const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, val) { try { localStorage.setItem(k, val); } catch (e) {} }
+};
+const duration = () => (isFinite(v.duration) && v.duration > 0) ? v.duration : (tl ? tl.duration : 0);
+const fps = () => rate.num / rate.den;
+function segAt(t) {
+  const segs = tl ? tl.segments : [];
+  for (const s of segs) if (t >= s.start && t < s.end) return s;
+  return segs.length && Math.abs(t - segs[segs.length - 1].end) < 0.001 ? segs[segs.length - 1] : null;
+}
+function subAt(t) {
+  if (!tl) return '';
+  return tl.subtitles.filter(s => t >= s.start && t < s.end).sort((a, b) => b.lane - a.lane).map(s => s.text).join(' / ');
+}
+const snapUrl = p => '/snap/' + p.replace(/^snapshots\//, '').split('/').map(encodeURIComponent).join('/');
+const statusOf = it => (!it.status || it.status === 'pending') ? 'todo' : it.status;
+const rangeText = it => (it.start_tc || tcOf(it.start_frame || 0)) + (it.end_tc ? ' ~ ' + it.end_tc : '');
+const tStart = it => it.start_seconds != null ? it.start_seconds : (it.time || 0);
+const tEnd = it => it.end_seconds != null ? it.end_seconds : (it.time_end != null ? it.time_end : null);
+
+/* ---------- 영상 불러오기 ---------- */
+async function loadState(first) {
+  const s = await api('/api/state');
+  const known = new Set(state.videos.map(x => x.name));
+  const sigOf = vs => JSON.stringify(vs.map(x => [x.name, x.pending, x.total, x.timeline]));
+  const changed = sigOf(s.videos) !== sigOf(state.videos);
+  if (!first) s.videos.filter(x => !known.has(x.name)).forEach(x => toast('새 영상이 들어왔어요: ' + x.name));
+  state = s;
+  if (first || changed) renderSelect();
+  return s;
+}
+function renderSelect() {
+  const sel = $('#videoSel');
+  sel.replaceChildren(...state.videos.map(x => h('option', { value: x.name, text: (x.url ? '☁ ' + stem(x.name) : x.name) + (x.pending ? `  (대기 ${x.pending})` : '') })));
+  if (cur) sel.value = cur;
+  sel.style.display = state.videos.length > 1 ? '' : 'none';
+}
+async function loadVideo(name) {
+  if (drawMode) exitDraw();
+  cur = name; tl = null; items = []; lastSig = ''; draft = null; activeId = null; editingId = null; viewShapes = null;
+  store.set('lastVideo', name);
+  $('#videoSel').value = name;
+  $('#noticeBox').replaceChildren();
+  $('#title').replaceChildren(h('span', { class: 'proj', text: state.project }), h('span', { class: 'sep', text: '·' }), h('span', { text: stem(name) }));
+  document.title = stem(name) + ' · 영상 피드백';
+  const pos = parseFloat(store.get('pos:' + name));   // 마지막으로 보던 자리 (src를 바꾸기 전에 읽어 둠)
+  v.addEventListener('loadedmetadata', () => { if (pos > 0) v.currentTime = Math.min(pos, v.duration || pos); }, { once: true });
+  const meta = state.videos.find(x => x.name === name) || {};
+  videoTries = 0;
+  if (meta.url) { v.crossOrigin = 'anonymous'; v.src = meta.url; }   // 구글 드라이브 영상 (화면 캡처를 위해 CORS로 먼저 시도)
+  else { v.removeAttribute('crossorigin'); v.src = '/media/' + encodeURIComponent(name); }
+  $('#shareBtn').hidden = false;
+  const [t, f] = await Promise.all([
+    api('/api/timeline?video=' + encodeURIComponent(name)).catch(e => ({ error: e.message })),
+    api('/api/feedback?video=' + encodeURIComponent(name)).catch(() => ({ items: [] }))
+  ]);
+  tl = t.data || null;
+  setRate(f.fps, f.timeline_tc_start, !!f.fcpxml);
+  showBanner(t);
+  items = f.items || []; lastSig = JSON.stringify(items);
+  noteEl.value = store.get('draftMemo:' + name) || '';   // 저장 전에 쓰던 메모가 있으면 되살림
+  setSaveState(noteEl.value ? 'draft' : 'idle');
+  renderStrip(); renderList(); renderCardHead();
+}
+function showBanner(t) {
+  const b = $('#banner'); b.hidden = true; b.classList.remove('err');
+  if (t.error) { b.textContent = '타임라인(FCPXML)을 읽지 못했어요 — ' + t.error + ' (시간 메모는 그대로 쓸 수 있어요)'; b.classList.add('err'); b.hidden = false; }
+  else if (!t.timeline && t.production) { /* Claude Code가 코드로 렌더한 영상: 타임라인이 없는 게 정상 */ }
+  else if (!t.timeline) { b.textContent = '이 영상과 이름이 같은 타임라인(FCPXML)이 타임라인 폴더에 없어요. 시간 메모는 되지만 소스 파일명·자막은 기록되지 않아요.'; b.hidden = false; }
+  else if (stem(t.timeline) !== stem(cur)) { b.textContent = '연결된 타임라인: ' + t.timeline + ' (영상과 이름이 달라요. 버전이 맞는지 확인해 주세요)'; b.hidden = false; }
+}
+let videoTries = 0;
+v.addEventListener('error', () => {
+  const meta = state.videos.find(x => x.name === cur) || {};
+  if (meta.url && videoTries++ === 0) { v.removeAttribute('crossorigin'); v.src = meta.url; return; }   // CORS 없이 다시 (캡처만 빠짐)
+  const b = $('#banner'); b.classList.add('err'); b.hidden = false;
+  if (meta.url) {   // 서버가 알려 주는 이유를 함께 보여 줌
+    b.textContent = '구글 드라이브 영상을 불러오지 못했어요.';
+    fetch(meta.url, { headers: { Range: 'bytes=0-1' } }).then(r => r.ok ? null : r.json()).then(j => { if (j && j.error) b.textContent += ' ' + j.error; })
+      .catch(() => { b.textContent += ' 인터넷 연결과 드라이브 공유 설정("링크가 있는 모든 사용자")을 확인해 주세요.'; });
+    return;
+  }
+  b.textContent = '이 브라우저가 영상을 재생하지 못해요. ProRes 같은 코덱이면 Safari로 열어 보세요 (H.264 mp4로 렌더하면 어느 브라우저든 재생돼요).';
+});
+
+/* ---------- 클립 스트립 ---------- */
+function renderStrip() {
+  const strip = $('#strip'); const D = duration();
+  strip.replaceChildren();
+  if (!D) return;
+  let alt = false;
+  (tl ? tl.segments : []).forEach(s => {
+    let cls = 'seg ';
+    if (!s.file && !s.name) cls += 'gap'; else if (s.broll) cls += 'broll'; else { cls += 'main' + (alt ? ' alt' : ''); alt = !alt; }
+    strip.append(h('div', { class: cls, style: `left:${s.start / D * 100}%;width:${(s.end - s.start) / D * 100}%`, title: `${fmt(s.start)} ~ ${fmt(s.end)}  ${s.file || s.name || '(빈 구간)'}${s.broll ? '  [B롤]' : ''}` }));
+  });
+  items.forEach(it => {
+    const st = statusOf(it), c = `--tc:${tcolor(it.type)};`;
+    if (tEnd(it) != null) strip.append(h('div', { class: 'rng ' + st, style: `${c}left:${tStart(it) / D * 100}%;width:${(tEnd(it) - tStart(it)) / D * 100}%` }));
+    strip.append(h('div', { class: 'mk ' + st, style: `${c}left:${tStart(it) / D * 100}%`, title: `${rangeText(it)}  [${it.type}] ${it.memo || ''}`,
+      onclick: e => { e.stopPropagation(); gotoItem(it); } }));
+  });
+  strip.append(h('div', { class: 'draftrng', id: 'draftRng', hidden: true }));
+  strip.append(h('div', { class: 'playhead', id: 'playhead' }));
+  renderDraftRange();
+}
+function renderDraftRange() {
+  const el = $('#draftRng'); const D = duration(); if (!el || !D) return;
+  let a = null, b = null;
+  if (draft && draft.end != null) { a = draft.time; b = draft.end; }
+  else if (draft && draft.armed) { a = draft.time; b = Math.max(draft.time, v.currentTime); }
+  if (a == null) { el.hidden = true; return; }
+  el.hidden = false; el.style.left = (a / D * 100) + '%'; el.style.width = Math.max(0.2, (b - a) / D * 100) + '%';
+}
+$('#strip').addEventListener('click', e => {
+  if (drawMode) return;
+  const r = e.currentTarget.getBoundingClientRect(); const D = duration(); if (!D) return;
+  seek((e.clientX - r.left) / r.width * D);
+});
+['loadedmetadata', 'durationchange'].forEach(ev => v.addEventListener(ev, renderStrip));
+
+/* ---------- 재생 위치 ---------- */
+let lastPosKey = '', lastOverlayKey = '';
+function tick() {
+  const t = v.currentTime || 0, D = duration();
+  const ph = $('#playhead'); if (ph && D) ph.style.left = (t / D * 100) + '%';
+  const seg = segAt(t), sub = subAt(t);
+  const key = fmt(t) + '|' + (seg ? seg.file || seg.name : '') + '|' + sub;
+  if (key !== lastPosKey) {
+    lastPosKey = key;
+    $('#posInfo').replaceChildren(h('span', {},
+      h('span', { class: 'tm', text: fmt(t) }),
+      rate.hasTl ? h('span', { class: 'tl', text: 'TL ' + tcOf(frameAt(t) + rate.tc0) }) : null,
+      seg && (seg.file || seg.name) ? [' · 📁 ', h('span', { text: seg.file || seg.name }), seg.broll ? h('span', { class: 'pill', text: 'B롤' }) : null] : null,
+      sub ? [' · ', h('span', { class: 'sub', text: '“' + sub + '”' })] : null));
+    if (!draft) renderCardHead();
+    if (draft && draft.armed && draft.end == null) renderDraftRange();
+  }
+  drawOverlay();
+  const sec = Math.floor(t);
+  if (cur && v.readyState >= 1 && sec !== tick.lastSec) { tick.lastSec = sec; store.set('pos:' + cur, t.toFixed(1)); }
+  requestAnimationFrame(tick);
+}
+function seek(t) {
+  const D = duration(); t = Math.max(0, Math.min(t, D || t));
+  v.currentTime = t; lastPosKey = '';
+}
+function boundaries() { return (tl ? tl.segments : []).filter(s => s.file || s.name).map(s => s.start); }
+function prevClip() { const t = v.currentTime, c = boundaries().filter(b => b < t - 0.3); seek(c.length ? Math.max(...c) : 0); }
+function nextClip() { const t = v.currentTime, c = boundaries().filter(b => b > t + 0.02); seek(c.length ? Math.min(...c) : duration()); }
+$('#prevBtn').onclick = prevClip; $('#nextBtn').onclick = nextClip;
+
+/* ---------- 화면에 그리기 ---------- */
+function contentRect() {
+  const W = cv.clientWidth, H = cv.clientHeight, vw = v.videoWidth || 16, vh = v.videoHeight || 9;
+  const s = Math.min(W / vw, H / vh), w = vw * s, hh = vh * s;
+  return { x: (W - w) / 2, y: (H - hh) / 2, w, h: hh };
+}
+function paintShapes(ctx, shapes, r) {
+  const lw = Math.max(2.5, r.h * 0.006);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const s of shapes) {
+    const P = s.points.map(([x, y]) => [r.x + x * r.w, r.y + y * r.h]);
+    const path = () => {
+      ctx.beginPath();
+      if (s.tool === 'pen') { ctx.moveTo(...P[0]); P.slice(1).forEach(p => ctx.lineTo(...p)); }
+      else if (s.tool === 'rect') { const [a, b] = P; ctx.rect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])); }
+      else if (s.tool === 'arrow') {
+        const [a, b] = P, ang = Math.atan2(b[1] - a[1], b[0] - a[0]), hl = Math.max(12, r.h * 0.035);
+        ctx.moveTo(...a); ctx.lineTo(...b);
+        ctx.moveTo(b[0] - hl * Math.cos(ang - 0.45), b[1] - hl * Math.sin(ang - 0.45)); ctx.lineTo(...b);
+        ctx.lineTo(b[0] - hl * Math.cos(ang + 0.45), b[1] - hl * Math.sin(ang + 0.45));
+      }
+    };
+    path(); ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = lw + 3; ctx.stroke();
+    path(); ctx.strokeStyle = s.color || DRAW_COLOR; ctx.lineWidth = lw; ctx.stroke();
+  }
+}
+function overlayShapes() {
+  const near = t => Math.abs(v.currentTime - t) < 0.08;
+  if (drawMode) return [...(draft ? draft.shapes : []), ...(inProgress ? [inProgress] : [])];
+  if (draft && draft.shapes.length && v.paused && near(draft.time)) return draft.shapes;
+  if (viewShapes && v.paused && near(viewShapes.time)) return viewShapes.shapes;
+  return null;
+}
+function drawOverlay(force) {
+  const shapes = overlayShapes();
+  const key = `${cv.clientWidth}x${cv.clientHeight}|${v.videoWidth}|${shapes ? JSON.stringify(shapes) : ''}`;
+  if (!force && key === lastOverlayKey) return;
+  lastOverlayKey = key;
+  const dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx.clearRect(0, 0, cv.clientWidth, cv.clientHeight);
+  if (shapes && shapes.length) paintShapes(cx, shapes, contentRect());
+}
+function toNorm(e) {
+  const b = cv.getBoundingClientRect(), r = contentRect();
+  const c = n => Math.round(Math.min(1, Math.max(0, n)) * 10000) / 10000;
+  return [c((e.clientX - b.left - r.x) / r.w), c((e.clientY - b.top - r.y) / r.h)];
+}
+cv.addEventListener('pointerdown', e => {
+  if (!drawMode) return;
+  e.preventDefault(); cv.setPointerCapture(e.pointerId);
+  const p = toNorm(e);
+  inProgress = { tool, color: DRAW_COLOR, points: tool === 'pen' ? [p] : [p, p] };
+});
+cv.addEventListener('pointermove', e => {
+  if (!inProgress) return;
+  const p = toNorm(e);
+  if (inProgress.tool === 'pen') { const l = inProgress.points[inProgress.points.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > 0.002) inProgress.points.push(p); }
+  else inProgress.points[1] = p;
+});
+const finishShape = () => {
+  if (!inProgress) return;
+  const s = inProgress; inProgress = null;
+  const [a, b] = [s.points[0], s.points[s.points.length - 1]];
+  const ok = s.tool === 'pen' ? s.points.length >= 2 : Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.01;
+  if (ok && draft) { draft.shapes.push(s); renderCardHead(); }
+};
+cv.addEventListener('pointerup', finishShape);
+cv.addEventListener('pointercancel', finishShape);
+function renderTools() { document.querySelectorAll('#drawBar [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === tool)); $('#drawBtn').classList.toggle('on', drawMode); }
+document.querySelectorAll('#drawBar [data-tool]').forEach(b => b.onclick = () => { tool = b.dataset.tool; renderTools(); });
+$('#undoBtn').onclick = () => { if (draft) { draft.shapes.pop(); renderCardHead(); } };
+$('#clearDrawBtn').onclick = () => { if (draft) { draft.shapes = []; renderCardHead(); } };
+$('#drawDoneBtn').onclick = () => exitDraw();
+function enterDraw() {
+  if (!cur) return;
+  startDraft(true);
+  if (Math.abs(v.currentTime - draft.time) > 0.02) seek(draft.time);
+  drawMode = true; viewShapes = null; noteEl.blur();
+  stage.classList.add('drawing'); $('#drawBar').hidden = false; renderTools();
+}
+function exitDraw() {
+  drawMode = false; inProgress = null;
+  // 아무것도 그리지 않고 끝냈으면 고정해 둔 시간도 풀기
+  if (draft && !draft.shapes.length && draft.end == null && !draft.armed && !noteEl.value.trim() && document.activeElement !== noteEl) draft = null;
+  stage.classList.remove('drawing'); $('#drawBar').hidden = true; renderTools(); renderCardHead();
+}
+$('#drawBtn').onmousedown = e => e.preventDefault();
+$('#drawBtn').onclick = () => drawMode ? exitDraw() : enterDraw();
+
+/* ---------- 구간 (I / O) ---------- */
+function setIn() {
+  if (!cur) return;
+  const now = v.currentTime || 0;
+  if (draft && draft.shapes.length && Math.abs(draft.time - now) > 0.05) toast('시작점이 바뀌어서 그림은 지웠어요');
+  if (!draft || Math.abs(draft.time - now) > 0.05) draft = { time: now, end: null, armed: true, shapes: [] };
+  else { draft.end = null; draft.armed = true; }
+  renderCardHead(); renderDraftRange();
+}
+function setOut() {
+  if (!cur) return;
+  const now = v.currentTime || 0;
+  if (!draft) { toast('먼저 I로 구간 시작점을 찍어 주세요', true); return; }
+  if (now <= draft.time + 0.05) { toast('끝점은 시작점보다 뒤여야 해요', true); return; }
+  draft.end = now; draft.armed = false; v.pause();
+  renderCardHead(); renderDraftRange();
+}
+$('#inBtn').onmousedown = $('#outBtn').onmousedown = e => e.preventDefault();
+$('#inBtn').onclick = setIn; $('#outBtn').onclick = setOut;
+
+/* ---------- 입력 카드 ---------- */
+function renderChips() {
+  $('#chips').replaceChildren(...TYPES.map(ty => h('button', { class: 'chip' + (selType === ty ? ' on' : ''), type: 'button', style: `--tc:${tcolor(ty)}`,
+    onmousedown: e => e.preventDefault(),
+    onclick: () => { selType = selType === ty ? null : ty; renderChips(); startDraft(false); noteEl.focus(); } }, h('i'), ty)));
+}
+function renderCardHead() {
+  const t = draft ? draft.time : (v.currentTime || 0);
+  const seg = segAt(t);
+  $('#dh').textContent = (draft && draft.end != null ? `${fmt(t)} ~ ${fmt(draft.end)}` : fmt(t)) + '에 남김';
+  $('#df').textContent = seg && (seg.file || seg.name) ? '· ' + (seg.file || seg.name) : '';
+  $('#cardHead').classList.toggle('frozen', !!draft);
+  $('#refreshPos').hidden = !draft; $('#cancelDraft').hidden = !draft;
+  const badges = [];
+  if (draft && draft.end != null) badges.push(h('span', { class: 'badge' }, `구간 ${(draft.end - draft.time).toFixed(1)}초`, h('button', { text: '✕', title: '구간 지우기', onclick: () => { draft.end = null; draft.armed = false; renderCardHead(); renderDraftRange(); } })));
+  else if (draft && draft.armed) badges.push(h('span', { class: 'badge', text: '구간 시작됨 · O로 끝점' }));
+  if (draft && draft.shapes.length) badges.push(h('span', { class: 'badge' }, `그림 ${draft.shapes.length}`, h('button', { text: '✕', title: '그림 지우기', onclick: () => { draft.shapes = []; renderCardHead(); } })));
+  $('#badges').replaceChildren(...badges);
+}
+function startDraft(pause) {
+  if (!draft) draft = { time: v.currentTime || 0, end: null, armed: false, shapes: [] };
+  if (pause) v.pause();
+  renderCardHead();
+}
+const draftHasExtras = () => draft && (draft.end != null || draft.armed || draft.shapes.length);
+noteEl.addEventListener('focus', () => { startDraft(true); });
+noteEl.addEventListener('blur', () => {
+  hideAc();
+  if (!noteEl.value.trim() && !drawMode && !draftHasExtras()) { draft = null; renderCardHead(); }
+});
+$('#refreshPos').onclick = () => { draft = { time: v.currentTime || 0, end: null, armed: false, shapes: [] }; renderCardHead(); renderDraftRange(); noteEl.focus(); };
+$('#cancelDraft').onclick = () => { if (drawMode) exitDraw(); draft = null; noteEl.value = ''; selType = null; renderChips(); renderCardHead(); renderDraftRange(); };
+
+function waitSeeked() {
+  return new Promise(res => { const done = () => { v.removeEventListener('seeked', done); res(); }; v.addEventListener('seeked', done); setTimeout(done, 1500); });
+}
+async function captureSnapshot(time, shapes) {
+  if (!v.videoWidth || v.readyState < 1) return null;
+  if (Math.abs(v.currentTime - time) > 0.02) { v.currentTime = time; await waitSeeked(); }
+  if (v.readyState < 2) await waitSeeked();
+  const sc = Math.min(1, 1280 / v.videoWidth), w = Math.round(v.videoWidth * sc), hh = Math.round(v.videoHeight * sc);
+  const c = document.createElement('canvas'); c.width = w; c.height = hh;
+  const ctx = c.getContext('2d'); ctx.drawImage(v, 0, 0, w, hh);
+  if (shapes && shapes.length) paintShapes(ctx, shapes, { x: 0, y: 0, w, h: hh });
+  try { return c.toDataURL('image/jpeg', 0.85); } catch (e) { return null; }   // 드라이브가 캡처를 막으면 캡처 없이 저장
+}
+function setSaveState(st, msg) {   // 저장 상태 표시 (지시서: 저장 실패 시 화면에 표시)
+  const el = $('#saveState'); if (!el) return;
+  const now = new Date().toTimeString().slice(0, 8);
+  const map = { idle: ['', ''], draft: ['draft', '✎ 작성 중 (아직 저장 전)'], saving: ['saving', '저장 중…'],
+                saved: ['saved', `✓ 저장됨 ${now}`], error: ['error', `⚠ 저장 실패 — ${msg || ''}`] };
+  const [cls, text] = map[st] || map.idle;
+  el.className = 'savestate ' + cls; el.replaceChildren(text);
+  if (st === 'error') el.append(' ', h('button', { class: 'btn ghost', text: '다시 저장', onclick: () => saveNote() }));
+}
+async function saveNote() {
+  if (saving) return;
+  const note = noteEl.value.trim();
+  if (!note) { toast('메모 내용을 적어 주세요', true); noteEl.focus(); return; }
+  if (!cur) return;
+  if (drawMode) exitDraw();
+  saving = true; $('#saveBtn').disabled = true;
+  const d = draft || { time: v.currentTime || 0, end: null, shapes: [] };
+  try {
+    let snapshot = null;
+    try { snapshot = await captureSnapshot(d.time, d.shapes); } catch (e) { snapshot = null; }
+    setSaveState('saving');
+    const sf = frameAt(d.time), ef = d.end != null ? frameAt(d.end) : null;
+    const it = await api('/api/feedback/add', { video: cur, start_frame: sf, end_frame: ef, time: sf * rate.fd, time_end: ef != null ? ef * rate.fd : null,
+      type: selType || '기타', memo: note, drawing: d.shapes, snapshot });
+    noteEl.value = ''; store.set('draftMemo:' + cur, ''); draft = null; selType = null; renderChips(); hideAc(); renderDraftRange();
+    setSaveState('saved');
+    noteEl.blur();
+    await refreshFeedback(true, it.id);
+    toast(`${rangeText(it)}에 남겼어요`);
+  } catch (e) { setSaveState('error', e.message); toast('저장하지 못했어요: ' + e.message, true); }
+  finally { saving = false; $('#saveBtn').disabled = false; renderCardHead(); }
+}
+$('#saveBtn').onclick = saveNote;
+
+/* 소스 파일명 자동완성 */
+let acIdx = 0, acList = [];
+function hideAc() { $('#ac').hidden = true; acList = []; }
+function currentToken() {
+  const pos = noteEl.selectionStart; const before = noteEl.value.slice(0, pos);
+  const m = before.match(/[^\s]+$/); return m ? { text: m[0], start: pos - m[0].length, end: pos } : null;
+}
+function updateAc() {
+  const tk = currentToken();
+  if (!tk || tk.text.length < 2) return hideAc();
+  const q = nfc(tk.text).toLowerCase();
+  const all = state.sources.filter(s => s.toLowerCase().includes(q) && s.toLowerCase() !== q);
+  all.sort((a, b) => (b.toLowerCase().startsWith(q) - a.toLowerCase().startsWith(q)) || a.localeCompare(b));
+  acList = all.slice(0, 6);
+  if (!acList.length) return hideAc();
+  acIdx = 0; renderAc();
+}
+function renderAc() {
+  const box = $('#ac'); box.hidden = false;
+  box.replaceChildren(...acList.map((s, i) => h('div', { class: i === acIdx ? 'on' : '', text: s, onmousedown: e => { e.preventDefault(); pickAc(i); } })));
+}
+function pickAc(i) {
+  const tk = currentToken(); if (!tk || !acList[i]) return;
+  const val = noteEl.value; const ins = acList[i] + ' ';
+  noteEl.value = val.slice(0, tk.start) + ins + val.slice(tk.end);
+  const p = tk.start + ins.length; noteEl.setSelectionRange(p, p); hideAc();
+}
+noteEl.addEventListener('input', updateAc);
+noteEl.addEventListener('input', () => { if (cur) { store.set('draftMemo:' + cur, noteEl.value); setSaveState(noteEl.value.trim() ? 'draft' : 'idle'); } });
+noteEl.addEventListener('click', updateAc);
+noteEl.addEventListener('keydown', e => {
+  if (e.isComposing || e.keyCode === 229) return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); saveNote(); return; }
+  if (!$('#ac').hidden && acList.length) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); acIdx = (acIdx + 1) % acList.length; renderAc(); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); acIdx = (acIdx - 1 + acList.length) % acList.length; renderAc(); return; }
+    if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); pickAc(acIdx); return; }
+    if (e.key === 'Escape') { e.preventDefault(); hideAc(); return; }
+  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(); return; }   // Enter = 저장, Shift+Enter = 줄바꿈
+  if (e.key === 'Escape') noteEl.blur();
+});
+
+/* ---------- 피드백 목록 ---------- */
+async function refreshFeedback(force, flashId) {
+  if (!cur) return;
+  const f = await api('/api/feedback?video=' + encodeURIComponent(cur));
+  const sig = JSON.stringify(f.items);
+  if (!force && (sig === lastSig || editingId)) return;
+  items = f.items || []; lastSig = sig;
+  renderList(flashId); renderStrip();
+}
+function gotoItem(it) {
+  if (drawMode) exitDraw();
+  activeId = it.id; v.pause();
+  const t = it.start_frame != null ? frameTime(it.start_frame) : tStart(it);
+  seek(t);
+  viewShapes = it.drawing && it.drawing.length ? { id: it.id, time: t, shapes: it.drawing } : null;
+  renderList();
+}
+const STATUS = { todo: '대기', done: '반영됨 ✓', question: '질문 ?', skipped: '보류' };
+function renderFilters() {
+  const n = { all: items.length, todo: 0, done: 0, question: 0, skipped: 0 };
+  items.forEach(i => n[statusOf(i)] = (n[statusOf(i)] || 0) + 1);
+  $('#statusFilter').replaceChildren(...[['all', '전체'], ['todo', '대기'], ['done', '반영됨'], ['question', '질문'], ['skipped', '보류']].map(([k, label]) =>
+    h('button', { class: filterStatus === k ? 'on' : '', text: `${label} ${n[k] || 0}`, onclick: () => { filterStatus = k; renderList(); } })));
+  $('#typeFilter').replaceChildren(...TYPES.map(ty => h('button', { class: filterTypes.has(ty) ? 'on' : '', style: `--tc:${tcolor(ty)}`, title: '눌러서 이 유형만 보기 (여러 개 선택 가능)',
+    onclick: () => { filterTypes.has(ty) ? filterTypes.delete(ty) : filterTypes.add(ty); renderList(); } }, h('i'), ty)));
+  $('#count').replaceChildren('남은 피드백 ', h('b', { text: n.todo }), ` / 전체 ${items.length}`);
+}
+function matches(it) {
+  if (filterStatus !== 'all' && statusOf(it) !== filterStatus) return false;
+  if (filterTypes.size && !filterTypes.has(it.type || '기타')) return false;
+  if (query) {
+    const hay = nfc([it.memo, it.source_clip, it.subtitle, it.claude_note, it.start_tc, it.end_tc, it.type, it.resolved_in, ...(it.mentioned_files || [])].join(' ')).toLowerCase();
+    if (!hay.includes(query)) return false;
+  }
+  return true;
+}
+function renderList(flashId) {
+  renderFilters();
+  if (typeof updateAskBtn === 'function') updateAskBtn();
+  const list = $('#list');
+  const shown = items.filter(matches);
+  if (!shown.length) {
+    list.replaceChildren(h('div', { class: 'empty' }, items.length ? '조건에 맞는 피드백이 없어요' : ['아직 남긴 피드백이 없어요.', h('br'), '영상을 보다가 ', h('b', { text: 'C' }), ' 키를 눌러 메모를 남겨 보세요.']));
+    return;
+  }
+  list.replaceChildren(...shown.map(it => itemEl(it, it.id === flashId)));
+  if (flashId) { const el = list.querySelector(`[data-id="${flashId}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+}
+async function setStatus(it, status) {
+  try { await api('/api/feedback/update', { video: cur, id: it.id, status }); await refreshFeedback(true); toast(status === 'done' ? '완료로 표시했어요' : '다시 대기로 돌렸어요'); }
+  catch (er) { toast(er.message, true); }
+}
+function itemEl(it, flash) {
+  const st = statusOf(it);
+  const el = h('div', { class: `item ${st}${it.id === activeId ? ' active' : ''}${flash ? ' flash' : ''}`, style: `--tc:${tcolor(it.type)}`, 'data-id': it.id, onclick: () => gotoItem(it) });
+  const head = h('div', { class: 'r1' },
+    h('span', { class: 't', text: rangeText(it) }),
+    h('span', { class: 'ty', text: it.type || '기타' }),
+    it.drawing && it.drawing.length ? h('span', { class: 'ty', text: '✏️', title: '화면에 그림 있음' }) : null,
+    h('span', { class: 'st ' + st, text: STATUS[st] || st }));
+  if (editingId === it.id) {
+    const ta = h('textarea', { rows: 3 }); ta.value = it.memo || '';
+    const doEdit = async () => {
+      try { await api('/api/feedback/update', { video: cur, id: it.id, memo: ta.value }); editingId = null; await refreshFeedback(true); toast('수정했어요'); }
+      catch (e) { toast('수정하지 못했어요: ' + e.message, true); }
+    };
+    const cancelEdit = () => { editingId = null; renderList(); };
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); doEdit(); } if (e.key === 'Escape') cancelEdit(); });
+    el.append(head, h('div', { class: 'edit' }, ta, h('div', { class: 'eb' },
+      h('button', { class: 'btn ghost', text: '취소', onclick: e => { e.stopPropagation(); cancelEdit(); } }),
+      h('button', { class: 'btn primary', text: '저장', onclick: e => { e.stopPropagation(); doEdit(); } }))));
+    setTimeout(() => ta.focus(), 0);
+    return el;
+  }
+  el.append(head, h('div', { class: 'body' }, h('div', { class: 'note', text: it.memo || '' }),
+    it.snapshot ? h('img', { class: 'thumb', src: snapUrl(it.snapshot), loading: 'lazy', alt: '', title: '남길 때의 화면' }) : null));
+  const srcBits = [it.source_clip, (it.mentioned_files || []).length ? '→ ' + it.mentioned_files.join(', ') : ''].filter(Boolean).join('  ');
+  if (srcBits) el.append(h('div', { class: 'src', text: '📁 ' + srcBits, title: srcBits }));
+  if (it.origin === 'client') el.append(h('div', { class: 'who', text: '👤 ' + (it.author || '고객') + ' (고객 피드백)' }));
+  if (it.claude_note || it.resolved_in) el.append(h('div', { class: 'res', text: ({ skipped: '보류 사유: ', question: '❓ Claude 질문: ' }[st] || '→ ') + (it.claude_note || '') + (it.resolved_in ? `  [${it.resolved_in}]` : '') }));
+  const acts = h('div', { class: 'acts' });
+  if (st === 'todo') acts.append(h('button', { class: 'ok', text: '✓ 완료', title: '직접 고쳤으면 완료로 표시', onclick: e => { e.stopPropagation(); setStatus(it, 'done'); } }));
+  else acts.append(h('button', { text: '↺ 다시 요청', onclick: e => { e.stopPropagation(); setStatus(it, 'todo'); } }));
+  acts.append(h('button', { text: '✎ 수정', onclick: e => { e.stopPropagation(); editingId = it.id; renderList(); } }));
+  const del = h('button', { class: 'del', text: '✕ 삭제' });
+  del.onclick = e => {
+    e.stopPropagation();
+    if (del.dataset.ask) { api('/api/feedback/delete', { video: cur, id: it.id }).then(() => refreshFeedback(true)).catch(er => toast(er.message, true)); return; }
+    del.dataset.ask = 1; del.textContent = '정말 삭제?'; del.style.color = 'var(--danger)';
+    setTimeout(() => { if (del.isConnected) { delete del.dataset.ask; del.textContent = '✕ 삭제'; del.style.color = ''; } }, 2500);
+  };
+  acts.append(del);
+  el.append(acts);
+  return el;
+}
+$('#search').addEventListener('input', e => { query = nfc(e.target.value.trim()).toLowerCase(); renderList(); });
+$('#search').addEventListener('keydown', e => { if (e.key === 'Escape') { e.target.value = ''; query = ''; renderList(); e.target.blur(); } });
+
+/* ---------- Claude Code로 반영 요청: 붙여넣을 명령 복사 ---------- */
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    const ta = h('textarea', { style: 'position:fixed;opacity:0' }); ta.value = text; document.body.append(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (er) {} ta.remove(); return ok;
+  }
+}
+$('#copyCmdBtn').onclick = async () => {
+  if (!cur) return;
+  const cmd = `/apply-feedback ${stem(cur)}`;
+  if (await copyText(cmd)) toast(`'${cmd}' 복사했어요 — 터미널의 Claude Code에 붙여넣고 Enter`);
+  else toast(`복사하지 못했어요. Claude Code에 직접 입력하세요: ${cmd}`, true);
+};
+
+/* ---------- Claude Code에게 반영 맡기기 (claude -p 로 바로 실행) ---------- */
+let job = null, jobEvents = [], jobTimer = null, jobOpenLog = false, jobDismissed = store.get('jobDismissed') || '';
+const fmtDur = s => { s = Math.max(0, Math.round(s || 0)); return (s >= 60 ? Math.floor(s / 60) + '분 ' : '') + (s % 60) + '초'; };
+try { $('#contChk').checked = store.get('contChk') !== '0'; } catch (e) {}
+$('#contChk').onchange = e => store.set('contChk', e.target.checked ? '1' : '0');
+function updateAskBtn() {
+  const btn = $('#askClaudeBtn'), pending = items.filter(i => statusOf(i) === 'todo').length;
+  const running = job && job.status === 'running';
+  btn.disabled = running || !pending;
+  btn.textContent = running ? '🤖 Claude Code가 작업 중…' : (pending ? `🤖 Claude Code에게 반영 맡기기 (대기 ${pending})` : '🤖 대기 중인 피드백이 없어요');
+}
+$('#askClaudeBtn').onclick = async () => {
+  if (!cur) return;
+  const pending = items.filter(i => statusOf(i) === 'todo').length;
+  if (!pending) { toast('대기 중인 피드백이 없어요'); return; }
+  $('#askClaudeBtn').disabled = true;
+  try {
+    job = await api('/api/claude/start', { video: cur, continue: $('#contChk').checked });
+    jobEvents = []; jobOpenLog = false; jobDismissed = ''; store.set('jobDismissed', '');
+    renderJob(); pollJob();
+    toast('Claude Code에게 맡겼어요. 반영되는 대로 목록이 바뀌어요');
+  } catch (e) { toast(e.message, true); updateAskBtn(); }
+};
+async function pollJob() {
+  clearTimeout(jobTimer);
+  try {
+    const r = await api('/api/claude/job?after=' + jobEvents.length);
+    if (r.job) {
+      const wasRunning = job && job.status === 'running' && job.id === r.job.id;
+      if (!job || job.id !== r.job.id) jobEvents = [];
+      jobEvents = jobEvents.concat(r.job.events || []);
+      job = r.job;
+      renderJob();
+      if (job.status === 'running') refreshFeedback(false).catch(() => {});
+      if (wasRunning && job.status !== 'running') {   // 방금 끝남
+        await loadState(false).catch(() => {});
+        await refreshFeedback(true).catch(() => {});
+        toast(job.status === 'done' ? 'Claude Code 작업이 끝났어요' : 'Claude Code 작업이 멈췄어요', job.status !== 'done');
+      }
+    }
+  } catch (e) {}
+  updateAskBtn();
+  if (job && job.status === 'running') jobTimer = setTimeout(pollJob, 1500);
+}
+function renderJob() {
+  const box = $('#jobBox');
+  if (!job || job.id === jobDismissed) { box.replaceChildren(); updateAskBtn(); return; }
+  const st = job.status, running = st === 'running';
+  const title = { running: 'Claude Code가 반영하는 중', done: 'Claude Code 작업 끝', failed: '작업이 멈췄어요', cancelled: '작업을 중지했어요', interrupted: '작업 표시가 끊겼어요' }[st] || st;
+  const c = job.counts || {};
+  const head = h('div', { class: 'jh' },
+    running ? h('span', { class: 'spin' }) : h('span', { text: st === 'done' ? '✅' : '⛔' }),
+    h('b', { text: title }), h('span', { class: 'tm', text: running ? fmtDur(job.elapsed) : (job.duration != null ? fmtDur(job.duration) : '') }),
+    h('span', { class: 'grow' }),
+    running ? h('button', { class: 'btn ghost', text: '■ 중지', onclick: async () => { try { await api('/api/claude/cancel', {}); toast('중지를 요청했어요'); } catch (e) { toast(e.message, true); } } })
+            : h('button', { class: 'btn ghost', text: '×', title: '닫기', onclick: () => { jobDismissed = job.id; store.set('jobDismissed', job.id); renderJob(); } }));
+  const shown = jobOpenLog ? jobEvents : jobEvents.slice(-7);
+  const log = h('div', { class: 'log' + (jobOpenLog ? ' full' : '') }, ...shown.map(e => h('div', { class: e.kind, text: e.text })));
+  const parts = [head, h('div', { style: 'color:var(--sub);margin-bottom:6px', text: `대상: ${stem(job.video)}${job.continue ? ' · 만들던 대화 이어서' : ''}` }), log];
+  if (!running && job.counts) parts.push(h('div', { style: 'margin-top:6px', text: `반영 ${c.done || 0}개 · 질문 ${c.question || 0}개 · 보류 ${c.skipped || 0}개` + (c.pending ? ` · 남은 대기 ${c.pending}개` : '') }));
+  if (!running && job.result) parts.push(h('div', { class: 'report', text: job.result }));
+  if (!running && job.error && st !== 'done') parts.push(h('div', { class: 'err', text: job.error }));
+  const btns = [h('button', { class: 'btn', text: jobOpenLog ? '로그 접기' : `전체 로그 (${jobEvents.length})`, onclick: () => { jobOpenLog = !jobOpenLog; renderJob(); } })];
+  (job.new_videos || []).forEach(n => btns.push(h('button', { class: 'btn primary', text: `▶ 새 버전 보기: ${stem(n)}`, onclick: () => loadVideo(n) })));
+  parts.push(h('div', { class: 'jb' }, ...btns));
+  box.replaceChildren(h('div', { class: 'job ' + st }, ...parts));
+  const lg = box.querySelector('.log'); if (lg) lg.scrollTop = lg.scrollHeight;
+  updateAskBtn();
+}
+
+/* ---------- 리졸브 마커로 내보내기 ---------- */
+$('#exportBtn').onclick = async () => {
+  if (!cur) return;
+  const pending = items.filter(i => statusOf(i) === 'todo').length;
+  try {
+    const r = await api('/api/export/markers', { video: cur, scope: pending ? 'pending' : 'all' });
+    const notes = [];
+    if (!r.has_timeline) notes.push('타임라인 파일이 없어서 30fps · 01:00:00:00 기준으로 만들었어요.');
+    if (r.drop_frame) notes.push('드롭 프레임 타임라인이라 마커 위치가 1~2프레임 어긋날 수 있어요.');
+    $('#noticeBox').replaceChildren(h('div', { class: 'notice' },
+      h('b', { text: `${r.scope === 'all' ? '전체' : '대기 중인'} 피드백 ${r.count}개를 마커로 저장했어요` }), h('br'),
+      h('code', { text: r.rel }), h('br'),
+      '리졸브 미디어 풀에서 해당 타임라인 우클릭 ▸ Timelines ▸ Import ▸ Timeline Markers from EDL…',
+      notes.length ? [h('br'), notes.join(' ')] : null,
+      h('button', { class: 'x', text: '×', onclick: () => $('#noticeBox').replaceChildren() })));
+  } catch (e) { toast('내보내지 못했어요: ' + e.message, true); }
+};
+
+/* ---------- 단축키 ---------- */
+window.addEventListener('keydown', e => {
+  if (!$('#modal').hidden) { if (e.key === 'Escape') { e.preventDefault(); closeModal(); } return; }   // 창이 떠 있으면 단축키 끔
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'textarea' || tag === 'input' || tag === 'select' || e.target.isContentEditable) return;  // 글 쓰는 중에는 단축키 끔
+  const done = () => { e.preventDefault(); e.stopPropagation(); };
+  if (drawMode) {  // 그리기 중에는 영상이 움직이지 않게
+    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') { done(); $('#undoBtn').click(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Escape' || e.code === 'KeyD') { done(); exitDraw(); return; }
+    if (e.code === 'KeyC' || e.code === 'KeyM') { done(); exitDraw(); noteEl.focus(); return; }
+    if (['KeyK', 'KeyJ', 'KeyL', 'ArrowLeft', 'ArrowRight', 'KeyI', 'KeyO', 'Space', 'KeyM'].includes(e.code)) done();
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const stepFrames = e.shiftKey ? rate.base : 1;   // ←/→ 1프레임, Shift 누르면 1초
+  const stepBy = dir => { v.pause(); const n = frameAt(v.currentTime) + dir * stepFrames; seek(frameTime(Math.max(0, n))); };
+  switch (e.code) {   // 한글 입력 상태에서도 동작하도록 e.code 사용
+    case 'Space': case 'KeyK': done(); v.paused ? v.play().catch(() => {}) : v.pause(); break;
+    case 'KeyJ': done(); prevClip(); break;
+    case 'KeyL': done(); nextClip(); break;
+    case 'ArrowLeft': done(); stepBy(-1); break;
+    case 'ArrowRight': done(); stepBy(1); break;
+    case 'KeyI': done(); setIn(); break;
+    case 'KeyO': done(); setOut(); break;
+    case 'KeyM': case 'KeyC': done(); startDraft(true); noteEl.focus(); break;
+    case 'KeyD': done(); enterDraw(); break;
+    case 'Escape': if (draft && !noteEl.value.trim()) { done(); $('#cancelDraft').click(); } break;
+  }
+}, true);
+new ResizeObserver(() => drawOverlay(true)).observe(stage);
+
+
+/* ---------- 구글 드라이브 영상 · 고객 링크 ---------- */
+function openModal(...kids) { $('#mbox').replaceChildren(...kids); $('#modal').hidden = false; const f = $('#mbox').querySelector('input'); if (f) setTimeout(() => f.focus(), 0); }
+function closeModal() { $('#modal').hidden = true; }
+$('#modal').addEventListener('mousedown', e => { if (e.target.id === 'modal') closeModal(); });
+const msgEl = () => h('div', { class: 'msg' });
+function say(el, text, kind) { el.className = 'msg ' + (kind || ''); el.textContent = text; }
+async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { return false; } }
+const FPS_CHOICES = [['', '자동 (같은 이름 FCPXML 기준, 없으면 30)'], ['24000/1001', '23.976'], ['24/1', '24'], ['25/1', '25'], ['30000/1001', '29.97'], ['30/1', '30'], ['50/1', '50'], ['60000/1001', '59.94'], ['60/1', '60']];
+
+$('#addLinkBtn').onclick = () => {
+  const url = h('input', { placeholder: 'https://drive.google.com/file/d/…/view' });
+  const name = h('input', { placeholder: '예: intro_v2  (타임라인 FCPXML과 같은 이름이면 자동으로 짝지어져요)', list: 'tlNames' });
+  const dl = h('datalist', { id: 'tlNames' }, ...(state.timelines || []).map(t => h('option', { value: t })));
+  const fps = h('select', {}, ...FPS_CHOICES.map(([val, label]) => h('option', { value: val, text: label })));
+  const msg = msgEl();
+  const go = async () => {
+    say(msg, '불러오는 중…');
+    try {
+      const r = await api('/api/link/add', { url: url.value, name: name.value, fps: fps.value || null });
+      await loadState(true); closeModal(); await loadVideo(r.video); toast('드라이브 영상을 불러왔어요');
+    } catch (e) { say(msg, e.message, 'err'); }
+  };
+  [url, name].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) go(); }));
+  openModal(h('h3', { text: '구글 드라이브 영상 불러오기' }),
+    h('p', { text: '드라이브에서 영상 공유를 "링크가 있는 모든 사용자"로 바꾼 뒤 링크를 복사해 넣어 주세요. 영상 파일은 내려받지 않고 드라이브에서 바로 재생해요.' }),
+    h('label', {}, '공유 링크', url), h('label', {}, '영상 이름', name, dl), h('label', {}, '프레임레이트', fps), msg,
+    h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '취소', onclick: closeModal }), h('button', { class: 'btn primary', text: '불러오기', onclick: go })));
+};
+
+$('#shareBtn').onclick = () => {
+  if (!cur) return;
+  const meta = state.videos.find(x => x.name === cur) || {};
+  if (!state.remote || !state.remote.configured) return setupDialog();
+  if (!meta.url) {
+    return openModal(h('h3', { text: '고객 링크' }),
+      h('p', { text: '고객이 영상을 볼 수 있어야 해서, 고객 링크는 구글 드라이브로 불러온 영상만 만들 수 있어요.' }),
+      h('p', { text: '이 영상을 구글 드라이브에 올리고 공유를 "링크가 있는 모든 사용자"로 바꾼 뒤, ＋ 드라이브 영상으로 같은 이름으로 불러와 주세요. 남긴 피드백은 이름이 같으면 그대로 이어져요.' }),
+      h('div', { class: 'mrow' }, h('button', { class: 'btn primary', text: '확인', onclick: closeModal })));
+  }
+  shareDialog(meta);
+};
+
+async function shareDialog(meta) {
+  const msg = msgEl(), box = h('div', { class: 'linkbox', text: meta.client_url || '아직 고객 링크가 없어요' });
+  const make = async () => {
+    say(msg, '구글에 링크를 만드는 중…');
+    try {
+      const r = await api('/api/remote/share', { video: cur });
+      box.textContent = r.client_url; await loadState(true);
+      say(msg, (await copyText(r.client_url)) ? '링크를 만들고 복사했어요. 고객에게 보내 주세요.' : '링크를 만들었어요. 위 주소를 복사해 보내 주세요.', 'ok');
+      makeBtn.textContent = '링크 다시 확인';
+    } catch (e) { say(msg, e.message, 'err'); }
+  };
+  const sync = async () => {
+    say(msg, '고객 피드백 가져오는 중…');
+    try {
+      const r = await api('/api/remote/sync', { video: cur });
+      say(msg, r.skipped ? '먼저 고객 링크를 만들어 주세요' : `가져옴: 새 피드백 ${r.added}개 · 수정 ${r.changed}개 · 고객이 지움 ${r.removed}개 (반영 상태도 고객 페이지에 알렸어요)`, r.skipped ? 'err' : 'ok');
+      await refreshFeedback(true);
+    } catch (e) { say(msg, e.message, 'err'); }
+  };
+  const makeBtn = h('button', { class: 'btn primary', text: meta.client_url ? '링크 다시 확인' : '고객 링크 만들기', onclick: make });
+  openModal(h('h3', { text: '고객 링크 — ' + stem(cur) }),
+    h('p', { text: '고객은 이 링크로 영상을 보며 시간별 피드백을 남겨요 (로그인 필요 없음). 남긴 피드백은 이 페이지에 자동으로 들어오고, 반영하면 고객 페이지에도 "반영됨"으로 보여요.' }),
+    box,
+    state.remote && state.remote.drive_key ? null : h('p', { style: 'color:#f5d28a', text: '⚠ 드라이브 API 키가 없어서 고객 페이지는 "드라이브 플레이어 + 시간 직접 입력"으로 열려요. 프레임 단위로 정확하게 받으려면 연결 설정에서 API 키를 넣어 주세요.' }),
+    msg,
+    h('div', { class: 'mrow' },
+      h('button', { class: 'btn ghost', text: '연결 설정', onclick: setupDialog }),
+      h('button', { class: 'btn ghost', text: '링크 복사', onclick: async () => { const t = box.textContent; if (!t.startsWith('http')) return; say(msg, (await copyText(t)) ? '복사했어요' : '주소를 직접 선택해 복사해 주세요', 'ok'); } }),
+      h('button', { class: 'btn', text: '⬇ 지금 가져오기', onclick: sync }),
+      makeBtn,
+      h('button', { class: 'btn ghost', text: '이 링크 영상 목록에서 빼기', onclick: async () => {
+        if (!confirm('목록에서 뺄까요? (남긴 피드백 파일은 그대로 남아요)')) return;
+        try { await api('/api/link/remove', { video: cur }); closeModal(); cur = null; await loadState(true); if (state.videos.length) loadVideo(state.videos[0].name); else location.reload(); }
+        catch (e) { say(msg, e.message, 'err'); } } })));
+}
+
+async function setupDialog() {
+  const url = h('input', { placeholder: 'https://script.google.com/macros/s/…/exec' });
+  const msg = msgEl();
+  const keyIn = h('input', { placeholder: 'AIza…' }), keyMsg = msgEl();
+  const pagesIn = h('input', { placeholder: 'https://아이디.github.io/video-feedback/' }), pagesMsg = msgEl();
+  pagesIn.value = (state.remote && state.remote.pages_url) || '';
+  const savePages = async () => {
+    try { await api('/api/remote/pages', { url: pagesIn.value }); await loadState(true); say(pagesMsg, pagesIn.value ? '저장했어요. 고객 링크가 이 주소로 만들어져요 (이미 보낸 링크도 그대로 열려요).' : 'Apps Script 페이지를 쓰도록 바꿨어요.', 'ok'); }
+    catch (e) { say(pagesMsg, e.message, 'err'); }
+  };
+  const saveKey = async () => {
+    say(keyMsg, '키 확인 중…');
+    try {
+      const m = state.videos.find(x => x.name === cur) || {};
+      const r = await api('/api/remote/drivekey', { key: keyIn.value, video: m.url ? cur : null });
+      await loadState(true);
+      say(keyMsg, '저장했어요' + (r.file ? ` — "${r.file.name}" 영상을 읽을 수 있어요` : '') + '. 고객 페이지를 새로고침하면 정확한 재생으로 바뀌어요.', 'ok');
+    } catch (e) { say(keyMsg, e.message, 'err'); }
+  };
+  const copyCode = async () => {
+    try { const r = await api('/api/remote/code', {}); say(msg, (await copyText(r.code)) ? '코드를 복사했어요. Apps Script 편집기에 붙여넣으세요.' : '복사하지 못했어요 — 작업/feedback-tool/google/Code.gs 파일을 열어 복사해 주세요', 'ok'); }
+    catch (e) { say(msg, e.message, 'err'); }
+  };
+  const connect = async () => {
+    say(msg, '연결 확인 중…');
+    try {
+      const r = await api('/api/remote/setup', { url: url.value });
+      await loadState(true);
+      say(msg, '연결됐어요! 피드백은 구글 드라이브의 "영상 피드백 (고객사)" 시트에 저장돼요.', 'ok');
+      setTimeout(() => { const m = state.videos.find(x => x.name === cur) || {}; if (m.url) shareDialog(m); else closeModal(); }, 1200);
+    } catch (e) { say(msg, e.message, 'err'); }
+  };
+  url.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) connect(); });
+  openModal(h('h3', { text: '고객 피드백 연결 (처음 한 번)' }),
+    h('p', { text: '고객용 페이지를 내 구글 계정에 올려요. 내 맥이 꺼져 있어도 고객은 피드백을 남길 수 있어요.' }),
+    h('ol', {},
+      h('li', {}, h('button', { class: 'btn', text: '① 코드 복사', onclick: copyCode })),
+      h('li', { text: '② script.google.com 에서 [새 프로젝트] → 있던 내용을 지우고 붙여넣기 → 저장(⌘S)' }),
+      h('li', { text: '③ 오른쪽 위 [배포] → [새 배포] → 톱니바퀴에서 [웹 앱] 선택' }),
+      h('li', { text: '④ 다음 사용자로 실행: 나 · 액세스 권한이 있는 사용자: 모든 사용자 → [배포]' }),
+      h('li', { text: '⑤ 권한 허용 창이 뜨면 내 계정 선택 → [고급] → [(안전하지 않은) 페이지로 이동] → [허용]  (내가 만든 코드라서 나오는 안내예요)' }),
+      h('li', { text: '⑥ 나온 웹 앱 URL(…/exec)을 아래에 붙여넣기' })),
+    h('label', {}, '웹 앱 URL', url), msg,
+    h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '닫기', onclick: closeModal }), h('button', { class: 'btn primary', text: '연결', onclick: connect })),
+    h('h3', { style: 'margin-top:8px', text: '고객 페이지 주소 (선택)' }),
+    h('p', { text: '고객 페이지를 GitHub Pages에 올렸으면 그 주소를 넣어 주세요. 고객 링크가 그 주소로 만들어져요 (구글 "Apps Script 사용자가 만든 앱" 안내 줄이 없어요). 비우면 구글 Apps Script 페이지를 써요.' }),
+    h('label', {}, '고객 페이지 주소', pagesIn), pagesMsg,
+    h('div', { class: 'mrow' }, h('button', { class: 'btn', text: '주소 저장', onclick: savePages })),
+    h('h3', { style: 'margin-top:8px', text: '드라이브 API 키 (고객 페이지에서 정확한 재생용)' + (state.remote && state.remote.drive_key ? ' — 설정됨 ✓' : '') }),
+    h('p', { text: '구글이 다른 사이트에서 드라이브 영상을 바로 재생하는 걸 막아서, 고객 페이지는 이 키로 영상을 불러와요. 키가 없으면 드라이브 기본 플레이어로 열리고 고객이 시간을 직접 적어야 해요.' }),
+    h('ol', {},
+      h('li', { text: '① console.cloud.google.com 접속 → 위쪽에서 프로젝트 선택 → [새 프로젝트] (이름 아무거나) → 만들기' }),
+      h('li', { text: '② 검색창에 "Google Drive API" → [사용]' }),
+      h('li', { text: '③ [API 및 서비스] → [사용자 인증 정보] → [+ 사용자 인증 정보 만들기] → [API 키]' }),
+      h('li', { text: '④ 만든 키의 [키 수정] → API 제한사항: [키 제한] → Google Drive API만 체크 → 저장 (이 키로는 공개된 파일 읽기만 할 수 있어요)' }),
+      h('li', { text: '⑤ 키(AIza…)를 복사해 아래에 붙여넣기' })),
+    h('label', {}, 'API 키', keyIn), keyMsg,
+    h('div', { class: 'mrow' }, h('button', { class: 'btn', text: '키 확인하고 저장', onclick: saveKey })));
+}
+
+/* ---------- 시작 ---------- */
+$('#videoSel').addEventListener('change', e => { loadVideo(e.target.value); e.target.blur(); });
+(async function init() {
+  renderChips(); renderTools();
+  try { await loadState(true); }
+  catch (e) { toast('서버에 연결하지 못했어요: ' + e.message, true); return; }
+  if (state.warnings.length) { const b = $('#banner'); b.textContent = state.warnings.join(' / '); b.classList.add('err'); b.hidden = false; }
+  if (!state.videos.length) {
+    $('#list').replaceChildren(h('div', { class: 'empty' }, '컨펌본 폴더에 영상이 없어요.', h('br'), '렌더한 영상을 컨펌본 폴더에 넣거나,', h('br'), '위의 ＋ 드라이브 영상 으로 구글 드라이브 링크를 불러오세요.'));
+    $('#shareBtn').hidden = true;
+    $('#title').textContent = '영상을 기다리는 중…';
+    renderFilters();
+  } else {
+    const want = nfc(new URLSearchParams(location.search).get('video') || '');   // fb.py open 으로 연 영상
+    const last = nfc(store.get('lastVideo') || '');
+    const pick = (want && (state.videos.find(x => x.name === want) || state.videos.find(x => stem(x.name) === stem(want))))
+      || state.videos.find(x => x.name === last) || [...state.videos].sort((a, b) => b.mtime - a.mtime)[0];
+    await loadVideo(pick.name);
+  }
+  requestAnimationFrame(tick);
+  pollJob();   // 페이지를 새로 열어도 진행 중인 Claude Code 작업을 이어서 보여줌
+  api('/api/claude/info').then(i => { if (!i.available) $('#askClaudeBtn').title = 'Claude Code(claude)를 찾지 못했어요 — 시작하기로 설치해 주세요'; }).catch(() => {});
+  setInterval(() => { if (!document.hidden) refreshFeedback(false).catch(() => {}); }, 2500);
+  setInterval(() => { if (!document.hidden) loadState(false).then(() => { if (!cur && state.videos.length) loadVideo(state.videos[0].name); }).catch(() => {}); }, 5000);
+})();
+</script>
+</body>
+</html>

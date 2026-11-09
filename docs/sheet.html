@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>영상 피드백</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#0f1115;--panel:#161a22;--card:#1b2029;--line:#2a3140;--line2:#353d4f;--text:#e8ecf3;--sub:#a3acbd;--dim:#788297;--accent:#ff8a3d;--ok:#3ccf8e;--warn:#f5c84b;--danger:#ff5d5d;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+a.btn{color:inherit;text-decoration:none;display:inline-block}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:100vh}
+.main{padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel{background:var(--panel);border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px;height:100vh;position:sticky;top:0}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.title{font-size:16px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who{display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px}
+.who input{width:130px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:5px 8px}
+.stage{background:#000;border-radius:12px;overflow:hidden;position:relative}
+video{display:block;width:100%;max-height:68vh;background:#000}
+.banner{background:#3a2a12;border:1px solid #6b4a17;color:#ffd79a;border-radius:10px;padding:8px 12px;font-size:13px}
+.banner.info{background:#13283a;border-color:#24527a;color:#a9d4ff}
+iframe.dp{display:block;width:100%;aspect-ratio:16/9;border:0;background:#000}
+.manual{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--sub)}
+.manual input{width:110px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-family:var(--mono)}
+.banner.err{background:#3a1717;border-color:#7a2a2a;color:#ffb3b3}
+.posrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tc{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:.5px}
+.btn{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#4a5468}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1006;font-weight:700}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.head{font-family:var(--mono);color:var(--sub);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line2);border-radius:999px;padding:3px 11px;cursor:pointer;font-size:13px;background:var(--card)}
+.chip.sel{border-color:var(--c);color:var(--c);box-shadow:inset 0 0 0 1px var(--c)}
+.chip i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--c);margin-right:5px;vertical-align:1px}
+.row{display:flex;gap:8px;align-items:stretch}
+textarea{flex:1;min-height:64px;resize:vertical;background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:9px 11px}
+textarea:focus,input:focus{outline:none;border-color:var(--accent)}
+.state{font-size:12px;color:var(--dim);min-height:18px}
+.state.saved{color:var(--ok)}.state.error{color:var(--danger)}
+.keys{font-size:12px;color:var(--dim)}
+.keys kbd{font-family:var(--mono);background:var(--card);border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px;color:var(--sub)}
+.ph{display:flex;align-items:center;justify-content:space-between}
+.ph b{font-size:15px}
+.cnt{color:var(--sub);font-size:13px}
+.list{overflow:auto;display:flex;flex-direction:column;gap:8px;flex:1;padding-right:2px}
+.item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;padding:9px 11px;cursor:pointer}
+.item:hover{border-color:#414a5f;border-left-color:var(--c)}
+.item.done{opacity:.6}
+.r1{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin-bottom:3px}
+.t{font-family:var(--mono);font-weight:700;color:var(--c);font-size:13px;white-space:nowrap}
+.ty{font-size:11px;color:var(--c);border:1px solid var(--c);border-radius:999px;padding:0 7px;white-space:nowrap}
+.st{margin-left:auto;font-size:11px;font-weight:700;padding:0 7px;border-radius:999px;white-space:nowrap;background:#2a3140;color:var(--sub)}
+.st.done{background:#173a2a;color:var(--ok)}.st.question{background:#2b2142;color:#c9a8ff}.st.skipped{background:#3a3115;color:var(--warn)}
+.memo{white-space:pre-wrap;word-break:break-word}
+.meta{font-size:12px;color:var(--dim);margin-top:3px;display:flex;gap:8px;align-items:center}
+.meta button{background:none;border:none;color:var(--dim);cursor:pointer;padding:0 2px;font-size:12px}
+.meta button:hover{color:var(--text)}
+.empty{color:var(--dim);text-align:center;padding:30px 10px;line-height:1.8;white-space:pre-line}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#222836;border:1px solid var(--line2);border-radius:10px;padding:9px 16px;opacity:0;transition:.2s;pointer-events:none;z-index:9}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.toast.err{border-color:var(--danger);color:#ffb3b3}
+.home{max-width:880px;margin:0 auto;padding:28px 20px 60px;display:flex;flex-direction:column;gap:14px}
+.home h1{font-size:20px;margin:0}
+.home h2{font-size:15px;margin:0}
+.home p,.home li{color:var(--sub);font-size:13px;line-height:1.65;margin:0}
+.home ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:3px}
+.home label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--sub)}
+.home input,.home select{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--text)}
+.home .grid{display:grid;grid-template-columns:2fr 1fr 130px;gap:10px;align-items:end}
+.home .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.home .msg{font-size:13px;min-height:18px}.home .msg.err{color:#ffb3b3}.home .msg.ok{color:#7be0b0}
+.proj{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.proj .nm{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj .ct{color:var(--sub);font-size:12px;white-space:nowrap}
+.mono{font-family:var(--mono);font-size:12px;word-break:break-all;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+.edbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stsel{margin-left:auto;background:var(--card);border:1px solid var(--line2);border-radius:6px;color:var(--text);font-size:11px;padding:1px 4px}
+@media (max-width:700px){.home .grid{grid-template-columns:1fr}}
+@media (max-width:900px){.app{grid-template-columns:1fr}.panel{height:auto;position:static;border-left:none;border-top:1px solid var(--line)}.list{max-height:none}.keys{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="main">
+    <div class="top">
+      <div class="title" id="title">영상 피드백</div>
+      <label class="who">이름 <input id="author" maxlength="40" placeholder="예: 김대리"></label>
+    </div>
+    <div class="edbar" id="edbar" hidden>
+      <a class="btn" href="./" id="edHome">← 내 영상</a>
+      <button class="btn" id="edCopy">🔗 고객 링크 복사</button>
+      <span class="cnt">편집자 모드 — 항목마다 상태를 바꿀 수 있어요 (고객에게는 상태만 보여요)</span>
+    </div>
+    <div id="banner" class="banner" hidden></div>
+    <div class="stage" id="stage"><video id="v" controls playsinline preload="auto"></video></div>
+    <div class="manual" id="manual" hidden>
+      <label>시간 <input id="mStart" placeholder="예: 1:23"></label>
+      <label>~ 끝 (선택) <input id="mEnd" placeholder="예: 1:30"></label>
+      <span>플레이어 아래에 나오는 시간을 적어 주세요</span>
+    </div>
+    <div class="posrow" id="posrow">
+      <span class="tc" id="tc">00:00:00:00</span>
+      <button class="btn" id="prevF" title="1프레임 뒤로 (←)">◀ 1프레임</button>
+      <button class="btn" id="nextF" title="1프레임 앞으로 (→)">1프레임 ▶</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="inBtn" title="구간 시작 (I)">⇤ 구간 시작</button>
+      <button class="btn" id="outBtn" title="구간 끝 (O)">구간 끝 ⇥</button>
+    </div>
+    <div class="card">
+      <div class="head" id="head">재생하다가 멈추고 피드백을 남겨 주세요</div>
+      <div class="chips" id="chips"></div>
+      <div class="row">
+        <textarea id="memo" placeholder="어떻게 고칠지 적어 주세요 (예: 여기 말 더듬는 부분 잘라 주세요)"></textarea>
+        <button class="btn primary" id="saveBtn">남기기</button>
+      </div>
+      <div class="state" id="state"></div>
+    </div>
+    <div class="keys"><kbd>Space</kbd> 재생·멈춤 · <kbd>←</kbd><kbd>→</kbd> 1프레임 (<kbd>Shift</kbd> 1초) · <kbd>M</kbd> 피드백 쓰기 · <kbd>Enter</kbd> 남기기 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>I</kbd><kbd>O</kbd> 구간 시작·끝 · <kbd>Esc</kbd> 취소</div>
+  </main>
+  <aside class="panel">
+    <div class="ph"><b>피드백</b><span class="cnt" id="cnt"></span></div>
+    <div class="list" id="list"></div>
+  </aside>
+</div>
+<div class="home" id="home" hidden>
+  <div class="top"><h1 style="flex:1">🎬 영상 피드백</h1><button class="btn" id="hSetBtn">⚙ 연결 설정</button></div>
+  <div class="card" id="hSetup" hidden>
+    <h2>구글 연결 (처음 한 번)</h2>
+    <p>피드백은 내 구글 계정의 시트에 저장돼요. 고객은 로그인 없이 링크로 들어와요.</p>
+    <ol>
+      <li><button class="btn" id="hCode">① 구글에 붙여넣을 코드 복사</button></li>
+      <li>② script.google.com → [새 프로젝트] → 내용을 지우고 붙여넣기 → 저장(⌘S)</li>
+      <li>③ [배포] → [새 배포] → 톱니바퀴에서 [웹 앱] → 실행: 나 · 액세스: <b>모든 사용자</b> → [배포]</li>
+      <li>④ 권한 창: 내 계정 → [고급] → [(안전하지 않은) 페이지로 이동] → [허용] (직접 만든 코드라서 나오는 안내예요)</li>
+      <li>⑤ 나온 웹 앱 URL(…/exec)을 아래에 붙여넣기</li>
+    </ol>
+    <label>웹 앱 URL <input id="hUrl" placeholder="https://script.google.com/macros/s/…/exec"></label>
+    <label>연결 비밀키 (맥 도구와 이미 연결했으면 맥에서 복사해 넣기 — 처음이면 비워 두세요) <input id="hKey" placeholder="비워 두면 새로 만들어요"></label>
+    <label>드라이브 API 키 (선택 — 프레임 단위로 정확한 재생·화면 캡처) <input id="hDkey" placeholder="AIza…"></label>
+    <p>API 키 만들기: console.cloud.google.com → 새 프로젝트 → "Google Drive API" [사용] → [API 및 서비스 › 사용자 인증 정보] → [API 키] → 키 수정 › API 제한: Google Drive API만 → 저장. 키가 없으면 드라이브 기본 플레이어로 열리고 시간을 직접 적어요.</p>
+    <div class="acts"><button class="btn primary" id="hConnect">연결</button><span class="msg" id="hMsg"></span></div>
+    <div id="hKeyBox" hidden><p>연결 비밀키 — 맥의 피드백 도구도 같은 곳에 연결하려면 이 키를 맥의 연결 설정에 넣어 주세요.</p><div class="acts"><span class="mono" id="hKeyShow"></span><button class="btn" id="hKeyCopy">복사</button></div></div>
+  </div>
+  <div class="card" id="hOpen" hidden>
+    <h2>영상 링크 열기</h2>
+    <p>구글 드라이브에서 공유를 <b>"링크가 있는 모든 사용자"</b>로 바꾸고 링크를 붙여넣으세요. 열린 화면의 주소가 곧 고객 링크예요.</p>
+    <div class="grid">
+      <label>드라이브 공유 링크 <input id="hLink" placeholder="https://drive.google.com/file/d/…/view"></label>
+      <label>영상 이름 <input id="hName" placeholder="예: intro_v2 (타임라인과 같은 이름 추천)"></label>
+      <label>프레임레이트 <select id="hFps"><option value="30000/1001">29.97</option><option value="30/1">30</option><option value="24000/1001">23.976</option><option value="24/1">24</option><option value="25/1">25</option><option value="60000/1001">59.94</option><option value="60/1">60</option></select></label>
+    </div>
+    <div class="acts"><button class="btn primary" id="hGo">열기</button><span class="msg" id="hGoMsg"></span></div>
+  </div>
+  <div class="card" id="hList" hidden>
+    <div class="ph"><h2>내 영상</h2><span class="cnt" id="hCnt"></span></div>
+    <div id="hProjects" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="config.js"></script>
+<script>
+var BOOT = null;   // 구글 Apps Script 페이지면 영상 정보가 여기 들어오고, GitHub Pages면 null (주소에서 읽음)
+var BACKEND = null;    // GitHub Pages: 피드백을 저장하는 구글 Apps Script 주소
+function backendCall(fn, args) {
+  return fetch(BACKEND, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'client', fn: fn, args: args }) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { if (!j.ok) throw new Error(j.error || '알 수 없는 오류'); return j.result; });
+}
+var EDITOR = null;     // 편집자(나) 설정: 이 브라우저에만 저장 {url, key, dkey}
+try { EDITOR = JSON.parse(localStorage.getItem('fbEditor') || 'null'); } catch (e) { EDITOR = null; }
+function editorCall(action, payload, conf) {
+  conf = conf || EDITOR;
+  var body = { action: action, key: conf.key };
+  for (var k in (payload || {})) body[k] = payload[k];
+  return fetch(conf.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { if (!j.ok) throw new Error(j.error || '알 수 없는 오류'); return j; });
+}
+function sidOf(url) { var m = /\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/.exec(url || ''); return m ? m[1] : encodeURIComponent(url || ''); }
+function linkFor(token, conf) { return location.origin + location.pathname + '?p=' + token + '&s=' + sidOf((conf || EDITOR).url); }
+function main(BOOT) {
+  'use strict';
+  var TYPES = ['컷 삭제', '길이 조절', '순서 변경', '자막·텍스트 수정', '클립 교체', '기타'];
+  var COLORS = { '컷 삭제': '#ff5d5d', '길이 조절': '#f5c84b', '순서 변경': '#a77bff', '자막·텍스트 수정': '#4d8dff', '클립 교체': '#2ec5d3', '기타': '#ff7eb6' };
+  var STATUS = { todo: '확인 중', done: '반영됨 ✓', question: '확인 필요', skipped: '보류' };
+  var $ = function (s) { return document.querySelector(s); };
+  var v = $('#v'), memoEl = $('#memo');
+  var items = [], selType = null, draft = null, saving = false;
+
+  // 프레임 계산 (예: "30000/1001" = 29.97fps)
+  var fr = String(BOOT.fps || '30/1').split('/'), num = +fr[0] || 30, den = +fr[1] || 1;
+  var fd = den / num, base = Math.round(num / den);
+  function frameAt(t) { return Math.max(0, Math.floor((t || 0) / fd + 1e-4)); }
+  function frameTime(n) { return (n + 0.5) * fd; }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function tcOf(n) { var f = n % base, s = Math.floor(n / base); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(s % 60) + ':' + pad(f); }
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, val) { try { localStorage.setItem(k, val); } catch (e) {} }
+  };
+  var owner = store.get('fbOwner');
+  if (!owner) { owner = 'o' + Math.random().toString(36).slice(2) + Date.now().toString(36); store.set('fbOwner', owner); }
+  $('#author').value = store.get('fbAuthor') || '';
+  $('#author').addEventListener('input', function () { store.set('fbAuthor', this.value.trim()); });
+
+  function call(fn) {   // google.script.run(Apps Script 페이지) 또는 fetch(GitHub Pages) 를 Promise로
+    var args = Array.prototype.slice.call(arguments, 1);
+    if (!(window.google && google.script && google.script.run)) return backendCall(fn, args);
+    return new Promise(function (res, rej) {
+      var r = google.script.run.withSuccessHandler(res).withFailureHandler(function (e) { rej(new Error((e && e.message) || String(e))); });
+      r[fn].apply(r, args);
+    });
+  }
+  function toast(msg, err) {
+    var t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.className = 'toast'; }, err ? 3500 : 2000);
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  // ---------- 영상 ----------
+  $('#title').textContent = BOOT.name;
+  document.title = BOOT.name + ' · 영상 피드백';
+  // 재생: 드라이브 API(키가 있을 때) → 프레임 단위로 정확. 안 되면 드라이브 기본 플레이어 + 시간 직접 입력
+  var manual = false;
+  function useDrivePlayer(reason) {
+    if (manual) return;
+    manual = true;
+    var f = document.createElement('iframe'); f.className = 'dp'; f.allow = 'autoplay; fullscreen'; f.setAttribute('allowfullscreen', '');
+    f.src = 'https://drive.google.com/file/d/' + encodeURIComponent(BOOT.drive_id) + '/preview';
+    v.removeAttribute('src'); v.load(); v.replaceWith(f);
+    $('#posrow').hidden = true; $('#manual').hidden = false;
+    var b = $('#banner'); b.className = 'banner info'; b.hidden = false;
+    b.textContent = '드라이브 플레이어로 재생해요. 고칠 곳의 시간을 "시간" 칸에 적고 피드백을 남겨 주세요.' + (reason ? ' (' + reason + ')' : '');
+    document.querySelector('.keys').hidden = true;
+  }
+  if (BOOT.key) {
+    v.crossOrigin = 'anonymous';   // 화면 캡처를 같이 보내려고
+    v.addEventListener('error', function () { useDrivePlayer('정확한 재생을 불러오지 못했어요'); });
+    v.src = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(BOOT.drive_id) + '?alt=media&key=' + encodeURIComponent(BOOT.key);
+  } else {
+    useDrivePlayer();
+  }
+  function parseTime(str) {   // "1:23", "01:02:03", "83", "00:01:23:15"(프레임) → 프레임 번호
+    str = String(str || '').trim(); if (!str) return null;
+    var p = str.split(/[:;.]/).map(function (x) { return x === '' ? NaN : +x; });
+    if (p.some(isNaN) || p.length > 4) return NaN;
+    var sec, fr = 0;
+    if (p.length === 4) { sec = p[0] * 3600 + p[1] * 60 + p[2]; fr = p[3]; }
+    else if (p.length === 3) sec = p[0] * 3600 + p[1] * 60 + p[2];
+    else if (p.length === 2) sec = p[0] * 60 + p[1];
+    else sec = p[0];
+    return p.length === 4 ? sec * base + fr : Math.floor(sec / fd + 1e-4);   // 타임코드는 그대로, 분:초는 실제 시간 → 프레임
+  }
+
+  function tick() {
+    if (!manual) $('#tc').textContent = tcOf(frameAt(v.currentTime));
+    requestAnimationFrame(tick);
+  }
+  function stepBy(n) { v.pause(); v.currentTime = frameTime(Math.max(0, frameAt(v.currentTime) + n)); }
+  function seekSec(s) { v.pause(); v.currentTime = Math.max(0, Math.min((v.duration || 1e9) - fd, v.currentTime + s)); }
+  $('#prevF').onclick = function () { stepBy(-1); };
+  $('#nextF').onclick = function () { stepBy(1); };
+
+  // ---------- 피드백 쓰기 ----------
+  function startDraft() { if (manual) return; if (!draft) { v.pause(); draft = { start: frameAt(v.currentTime), end: null }; } renderHead(); }
+  function setIn() { v.pause(); draft = { start: frameAt(v.currentTime), end: draft && draft.end != null && draft.end > frameAt(v.currentTime) ? draft.end : null }; renderHead(); toast('구간 시작 ' + tcOf(draft.start)); }
+  function setOut() {
+    v.pause(); var f = frameAt(v.currentTime);
+    if (!draft) draft = { start: f, end: null };
+    if (f <= draft.start) { toast('구간 끝은 시작보다 뒤여야 해요', true); return; }
+    draft.end = f; renderHead(); toast('구간 끝 ' + tcOf(f));
+  }
+  $('#inBtn').onclick = setIn; $('#outBtn').onclick = setOut;
+  function renderHead() {
+    var h = $('#head');
+    if (!draft) { h.textContent = '재생하다가 멈추고 피드백을 남겨 주세요'; return; }
+    h.textContent = tcOf(draft.start) + (draft.end != null ? ' ~ ' + tcOf(draft.end) : '') + ' 에 남김';
+  }
+  function renderChips() {
+    var box = $('#chips'); box.innerHTML = '';
+    TYPES.forEach(function (t) {
+      var c = el('span', 'chip' + (selType === t ? ' sel' : '')); c.style.setProperty('--c', COLORS[t]);
+      c.appendChild(el('i')); c.appendChild(document.createTextNode(t));
+      c.onclick = function () { selType = selType === t ? null : t; renderChips(); memoEl.focus(); };
+      box.appendChild(c);
+    });
+  }
+  memoEl.addEventListener('focus', function () { startDraft(); });
+  memoEl.addEventListener('input', function () { store.set('fbDraft:' + BOOT.token, memoEl.value); setState(memoEl.value ? 'draft' : ''); });
+  memoEl.value = store.get('fbDraft:' + BOOT.token) || '';
+  memoEl.addEventListener('keydown', function (e) {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { memoEl.blur(); }
+  });
+  $('#saveBtn').onclick = function () { save(); };
+  function setState(st, msg) {
+    var s = $('#state'), now = new Date().toTimeString().slice(0, 8);
+    var map = { '': ['', ''], draft: ['', '✎ 작성 중'], saving: ['', '저장 중…'], saved: ['saved', '✓ 저장됨 ' + now], error: ['error', '⚠ 저장 실패 — ' + (msg || '') + ' (다시 눌러 주세요)'] };
+    var m = map[st] || map['']; s.className = 'state ' + m[0]; s.textContent = m[1];
+  }
+  function snapshot() {   // 고친 곳 화면 캡처 (작게) — 드라이브가 막으면 없이 보냄
+    if (manual) return null;
+    try {
+      if (!v.videoWidth || v.readyState < 2) return null;
+      var tries = [[480, 0.6], [360, 0.5], [240, 0.45]];
+      for (var i = 0; i < tries.length; i++) {
+        var w = Math.min(tries[i][0], v.videoWidth), hgt = Math.round(v.videoHeight * w / v.videoWidth);
+        var c = document.createElement('canvas'); c.width = w; c.height = hgt;
+        c.getContext('2d').drawImage(v, 0, 0, w, hgt);
+        var url = c.toDataURL('image/jpeg', tries[i][1]);
+        if (url.length < 45000) return url;
+      }
+    } catch (e) {}
+    return null;
+  }
+  function save() {
+    var memo = memoEl.value.trim();
+    if (!memo) { toast('내용을 적어 주세요', true); memoEl.focus(); return; }
+    if (saving) return;
+    var author = $('#author').value.trim();
+    if (!author) { toast('이름을 먼저 적어 주세요 (오른쪽 위)', true); $('#author').focus(); return; }
+    if (manual) {   // 드라이브 플레이어 모드: 적은 시간 사용
+      var sf = parseTime($('#mStart').value), ef = parseTime($('#mEnd').value);
+      if (sf === null || isNaN(sf)) { toast('고칠 곳의 시간을 적어 주세요 (예: 1:23)', true); $('#mStart').focus(); return; }
+      if (isNaN(ef)) { toast('끝 시간 형식을 확인해 주세요 (예: 1:30)', true); $('#mEnd').focus(); return; }
+      draft = { start: sf, end: ef !== null && ef > sf ? ef : null };
+    }
+    startDraft();
+    var it = { start_frame: draft.start, end_frame: draft.end, type: selType || '기타', memo: memo, author: author, snapshot: snapshot() };
+    saving = true; setState('saving');
+    call('clientAdd', BOOT.token, it, owner).then(function (row) {
+      saving = false; setState('saved');
+      items.push(row); render();
+      memoEl.value = ''; store.set('fbDraft:' + BOOT.token, ''); draft = null; $('#mStart').value = ''; $('#mEnd').value = ''; selType = null; renderChips(); renderHead(); memoEl.blur();
+      toast('남겼어요');
+    }).catch(function (e) { saving = false; setState('error', e.message); });
+  }
+
+  // ---------- 목록 ----------
+  function render() {
+    items.sort(function (a, b) { return a.start_frame - b.start_frame || (a.created_at < b.created_at ? -1 : 1); });
+    var list = $('#list'); list.innerHTML = '';
+    var left = items.filter(function (x) { return (x.status || 'todo') === 'todo'; }).length;
+    $('#cnt').textContent = '전체 ' + items.length + (left ? ' · 확인 중 ' + left : '');
+    if (!items.length) { list.appendChild(el('div', 'empty', '아직 남긴 피드백이 없어요.\n영상을 보다가 고칠 곳에서 멈추고 피드백을 적어 주세요.')); return; }
+    items.forEach(function (it) {
+      var st = it.status || 'todo';
+      var box = el('div', 'item' + (st === 'done' ? ' done' : '')); box.style.setProperty('--c', COLORS[it.type] || COLORS['기타']);
+      var r1 = el('div', 'r1');
+      r1.appendChild(el('span', 't', tcOf(+it.start_frame) + (it.end_frame !== '' && it.end_frame != null ? ' ~ ' + tcOf(+it.end_frame) : '')));
+      r1.appendChild(el('span', 'ty', it.type || '기타'));
+      if (window.__isEditor) {
+        var sel = el('select', 'stsel');
+        ['todo', 'done', 'question', 'skipped'].forEach(function (k) { var o = el('option', '', { todo: '대기', done: '반영됨', question: '질문', skipped: '보류' }[k]); o.value = k; if (k === st) o.selected = true; sel.appendChild(o); });
+        sel.onclick = function (e) { e.stopPropagation(); };
+        sel.onchange = function () { window.__setStatus(it, sel.value); };
+        r1.appendChild(sel);
+      } else r1.appendChild(el('span', 'st ' + st, STATUS[st] || st));
+      box.appendChild(r1);
+      box.appendChild(el('div', 'memo', it.memo));
+      var meta = el('div', 'meta'); meta.appendChild(el('span', '', it.author || ''));
+      if (it.mine && st === 'todo') {
+        var ed = el('button', '', '수정'); ed.onclick = function (e) { e.stopPropagation(); edit(it); };
+        var del = el('button', '', '삭제'); del.onclick = function (e) { e.stopPropagation(); remove(it); };
+        meta.appendChild(ed); meta.appendChild(del);
+      }
+      box.appendChild(meta);
+      box.onclick = function () { if (manual) return; v.pause(); v.currentTime = frameTime(+it.start_frame); };
+      list.appendChild(box);
+    });
+  }
+  function edit(it) {
+    var memo = prompt('피드백 수정', it.memo);
+    if (memo == null || !memo.trim() || memo.trim() === it.memo) return;
+    call('clientUpdate', BOOT.token, it.id, owner, memo.trim()).then(function () { it.memo = memo.trim(); render(); toast('수정했어요'); })
+      .catch(function (e) { toast('수정하지 못했어요: ' + e.message, true); });
+  }
+  function remove(it) {
+    if (!confirm('이 피드백을 지울까요?')) return;
+    call('clientDelete', BOOT.token, it.id, owner).then(function () { items = items.filter(function (x) { return x.id !== it.id; }); render(); toast('지웠어요'); })
+      .catch(function (e) { toast('지우지 못했어요: ' + e.message, true); });
+  }
+  function load() {
+    return call('clientLoad', BOOT.token, owner).then(function (res) { items = res.items || []; render(); })
+      .catch(function (e) { toast('목록을 불러오지 못했어요: ' + e.message, true); });
+  }
+
+  // ---------- 단축키 ----------
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (manual) { if (e.code === 'KeyM') { e.preventDefault(); $('#mStart').focus(); } return; }
+    var done = function () { e.preventDefault(); };
+    switch (e.code) {
+      case 'Space': done(); if (v.paused) v.play(); else v.pause(); break;
+      case 'ArrowLeft': done(); if (e.shiftKey) seekSec(-1); else stepBy(-1); break;
+      case 'ArrowRight': done(); if (e.shiftKey) seekSec(1); else stepBy(1); break;
+      case 'KeyM': done(); startDraft(); memoEl.focus(); break;
+      case 'KeyI': done(); setIn(); break;
+      case 'KeyO': done(); setOut(); break;
+      case 'Escape': done(); draft = null; renderHead(); break;
+    }
+  }, true);
+
+  var isEditor = !!(EDITOR && EDITOR.url === BACKEND && BACKEND);
+  if (isEditor) {
+    $('#edbar').hidden = false;
+    if (!$('#author').value) $('#author').value = '편집자';
+    $('#edCopy').onclick = function () {
+      var u = linkFor(BOOT.token);
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { toast('고객 링크를 복사했어요'); })
+        .catch(function () { prompt('고객 링크 (복사해서 보내 주세요)', u); });
+    };
+  }
+  window.__setStatus = function (it, st) {   // 편집자: 상태 바꾸기
+    editorCall('setstatus', { token: BOOT.token, id: it.id, status: st }).then(function () { it.status = st; render(); toast('상태를 바꿨어요'); })
+      .catch(function (e) { toast('바꾸지 못했어요: ' + e.message, true); render(); });
+  };
+  window.__isEditor = isEditor;
+  renderChips(); renderHead(); load(); requestAnimationFrame(tick);
+  if (memoEl.value) setState('draft');
+  setInterval(function () { if (!document.hidden) load(); }, 30000);   // 편집자가 반영하면 상태가 바뀌어요
+}
+
+// ---------- 편집자 홈 (GitHub Pages 첫 화면) ----------
+function home() {
+  var $ = function (x) { return document.querySelector(x); };
+  document.querySelector('.app').hidden = true; $('#home').hidden = false; document.title = '영상 피드백';
+  function say(id, t, k) { var m = $(id); m.className = 'msg ' + (k || ''); m.textContent = t; }
+  function toast(msg, err) { var t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(toast._t); toast._t = setTimeout(function () { t.className = 'toast'; }, 2500); }
+  function copy(t, okMsg) { return (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast(okMsg || '복사했어요'); }).catch(function () { prompt('복사해 주세요', t); }); }
+  function show() {
+    var ok = !!(EDITOR && EDITOR.url && EDITOR.key);
+    $('#hSetup').hidden = ok; $('#hOpen').hidden = !ok; $('#hList').hidden = !ok;
+    if (ok) { $('#hKeyShow').textContent = EDITOR.key; refresh(); }
+  }
+  $('#hSetBtn').onclick = function () {
+    $('#hSetup').hidden = !$('#hSetup').hidden;
+    if (EDITOR) { $('#hUrl').value = EDITOR.url || ''; $('#hKey').value = EDITOR.key || ''; $('#hDkey').value = EDITOR.dkey || ''; $('#hKeyBox').hidden = !EDITOR.key; $('#hKeyShow').textContent = EDITOR.key || ''; }
+  };
+  $('#hCode').onclick = function () {
+    fetch('Code.gs', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.text(); }).then(function (t) { copy(t, '코드를 복사했어요. Apps Script 편집기에 붙여넣으세요.'); })
+      .catch(function () { toast('코드를 불러오지 못했어요 — 저장소의 docs/Code.gs 를 열어 복사해 주세요', true); });
+  };
+  $('#hKeyCopy').onclick = function () { copy($('#hKeyShow').textContent, '연결 비밀키를 복사했어요'); };
+  $('#hConnect').onclick = function () {
+    var url = $('#hUrl').value.trim(), key = $('#hKey').value.trim(), dkey = $('#hDkey').value.trim();
+    var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url) && !(local && /^http:\/\/127\.0\.0\.1:\d+\/exec$/.test(url)))
+      return say('#hMsg', '웹 앱 URL이 아니에요 (https://script.google.com/macros/s/…/exec)', 'err');
+    if (!key) { var a = new Uint8Array(18); crypto.getRandomValues(a); key = Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+    var conf = { url: url, key: key, dkey: dkey };
+    say('#hMsg', '연결 확인 중…');
+    editorCall('hello', {}, conf).then(function () { return dkey ? editorCall('settings', { drive_key: dkey }, conf) : null; }).then(function () {
+      EDITOR = conf; try { localStorage.setItem('fbEditor', JSON.stringify(conf)); } catch (e) {}
+      say('#hMsg', '연결됐어요!', 'ok'); $('#hKeyBox').hidden = false; $('#hKeyShow').textContent = key; show(); $('#hSetup').hidden = false;
+    }).catch(function (e) { say('#hMsg', e.message, 'err'); });
+  };
+  function driveId(u) { var m = /\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(u) || /[?&]id=([A-Za-z0-9_-]{10,})/.exec(u); return m ? m[1] : null; }
+  $('#hLink').addEventListener('change', function () {   // API 키가 있으면 드라이브 파일 이름으로 이름 채우기
+    var id = driveId(this.value); if (!id || !EDITOR || !EDITOR.dkey || $('#hName').value) return;
+    fetch('https://www.googleapis.com/drive/v3/files/' + id + '?fields=name&key=' + encodeURIComponent(EDITOR.dkey)).then(function (r) { return r.json(); })
+      .then(function (j) { if (j.name && !$('#hName').value) $('#hName').value = j.name.replace(/\.[^.]+$/, ''); }).catch(function () {});
+  });
+  $('#hGo').onclick = function () {
+    var id = driveId($('#hLink').value.trim()), name = $('#hName').value.trim().replace(/\.(mp4|mov|m4v|webm)$/i, '');
+    if (!id) return say('#hGoMsg', '구글 드라이브 공유 링크가 아니에요', 'err');
+    if (!name) return say('#hGoMsg', '영상 이름을 적어 주세요', 'err');
+    say('#hGoMsg', '여는 중…');
+    editorCall('project', { name: name, drive_id: id, fps: $('#hFps').value }).then(function (r) { location.href = linkFor(r.token); })
+      .catch(function (e) { say('#hGoMsg', e.message, 'err'); });
+  };
+  [$('#hLink'), $('#hName')].forEach(function (x) { x.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) $('#hGo').click(); }); });
+  function refresh() {
+    editorCall('projects', {}).then(function (r) {
+      var box = $('#hProjects'); box.innerHTML = '';
+      $('#hCnt').textContent = r.projects.length ? r.projects.length + '개' : '';
+      if (!r.projects.length) { box.innerHTML = '<p>아직 없어요. 위에서 영상 링크를 열어 보세요.</p>'; return; }
+      r.projects.slice().reverse().forEach(function (p) {
+        var row = document.createElement('div'); row.className = 'proj';
+        var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name;
+        var ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = '대기 ' + p.todo + ' · 전체 ' + p.total;
+        var op = document.createElement('a'); op.className = 'btn'; op.textContent = '열기'; op.href = linkFor(p.token);
+        var cp = document.createElement('button'); cp.className = 'btn'; cp.textContent = '🔗 고객 링크'; cp.onclick = function () { copy(linkFor(p.token), '고객 링크를 복사했어요'); };
+        row.appendChild(nm); row.appendChild(ct); row.appendChild(cp); row.appendChild(op); box.appendChild(row);
+      });
+    }).catch(function (e) { $('#hProjects').textContent = '목록을 불러오지 못했어요: ' + e.message; });
+  }
+  show();
+}
+
+function fatal(msg) {
+  document.querySelector('.app').innerHTML = '<p style="padding:40px;line-height:1.7;color:#a3acbd"></p>';
+  document.querySelector('.app p').textContent = msg;
+}
+(function start() {
+  if (BOOT) return main(BOOT);
+  var q = new URLSearchParams(location.search), p = q.get('p') || '', s = q.get('s') || window.FB_BACKEND || '';
+  if (!p) return home();
+  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  if (/^[A-Za-z0-9_-]{20,}$/.test(s)) BACKEND = 'https://script.google.com/macros/s/' + s + '/exec';
+  else if (/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(s) || (local && /^http:\/\/127\.0\.0\.1:\d+\/exec$/.test(s))) BACKEND = s;
+  if (!/^[A-Za-z0-9]{10,40}$/.test(p) || !BACKEND) return fatal('링크가 올바르지 않아요. 편집자에게 받은 주소 전체를 다시 열어 주세요.');
+  document.getElementById('title').textContent = '불러오는 중…';
+  backendCall('clientProject', [p]).then(main).catch(function (e) { fatal('영상 정보를 불러오지 못했어요 — ' + e.message); });
+})();
+</script>
+</body>
+</html>

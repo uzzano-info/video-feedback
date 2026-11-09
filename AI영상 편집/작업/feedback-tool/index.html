@@ -210,6 +210,7 @@ kbd{font-family:var(--mono);font-size:11px;background:#1b1f29;border:1px solid v
       <div class="title" id="title"><span class="proj">…</span></div>
       <select id="videoSel" title="영상 선택"></select>
       <button class="topbtn" id="addLinkBtn" title="구글 드라이브에 올린 영상을 링크로 불러오기">＋ 드라이브 영상</button>
+      <button class="topbtn" id="importBtn" title="고객이 웹 페이지에서 보낸 피드백 링크(…#fb=…) 가져오기">📥 고객 피드백 링크</button>
       <button class="topbtn share" id="shareBtn" title="고객사가 이 영상을 보고 피드백을 남길 수 있는 링크">🌐 고객 링크</button>
     </div>
     <div id="banner" class="banner" hidden></div>
@@ -1112,6 +1113,22 @@ async function setupDialog() {
     h('label', {}, 'API 키', keyIn), keyMsg,
     h('div', { class: 'mrow' }, h('button', { class: 'btn', text: '키 확인하고 저장', onclick: saveKey })));
 }
+
+$('#importBtn').onclick = () => {
+  const ta = h('textarea', { rows: 4, placeholder: '고객이 보낸 링크 (https://uzzano-info.github.io/video-feedback/#fb=…)', style: 'background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--text);font:inherit' });
+  const msg = msgEl();
+  const go = async () => {
+    say(msg, '가져오는 중…');
+    try {
+      const r = await api('/api/import/weblink', { text: ta.value });
+      await loadState(true); closeModal(); await loadVideo(r.video);
+      toast(`${r.author || '고객'} 님 피드백 ${r.added}개를 넣었어요` + (r.added < r.total ? ` (이미 있던 ${r.total - r.added}개 제외)` : ''));
+    } catch (e) { say(msg, e.message, 'err'); }
+  };
+  openModal(h('h3', { text: '📥 고객 피드백 링크 가져오기' }),
+    h('p', { text: '고객이 웹 페이지(uzzano-info.github.io/video-feedback)에서 [📤 피드백 보내기]로 만든 링크를 붙여넣으세요. 같은 드라이브 영상에 피드백이 들어가고, Claude Code가 반영할 수 있어요. 같은 링크를 두 번 넣어도 중복되지 않아요.' }),
+    ta, msg, h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '닫기', onclick: closeModal }), h('button', { class: 'btn primary', text: '가져오기', onclick: go })));
+};
 
 /* ---------- 시작 ---------- */
 $('#videoSel').addEventListener('change', e => { loadVideo(e.target.value); e.target.blur(); });

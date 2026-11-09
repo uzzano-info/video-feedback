@@ -439,3 +439,58 @@ def sync_background(d, video_actual, fb_api):
         finally:
             _sync_running.discard(name)
     threading.Thread(target=run, daemon=True).start()
+
+
+# ---------- 웹 페이지(GitHub Pages)에서 고객이 보낸 피드백 링크 가져오기 ----------
+WEB_TYPES = ["컷 삭제", "길이 조절", "순서 변경", "자막·텍스트 수정", "클립 교체", "기타"]
+
+
+def decode_weblink(text):
+    """'…#fb=z…' 링크 → 피드백 묶음 (z: 압축 deflate-raw, j: 압축 안 함)"""
+    import base64
+    import zlib
+    m = re.search(r"#fb=([A-Za-z0-9_-]+)", text or "") or re.match(r"^([zj][A-Za-z0-9_-]+)$", (text or "").strip())
+    if not m:
+        raise ValueError("고객 피드백 링크가 아니에요 (주소에 #fb= 가 있어야 해요)")
+    data = m.group(1)
+    raw = base64.urlsafe_b64decode(data[1:] + "=" * (-len(data[1:]) % 4))
+    try:
+        if data[0] == "z":
+            raw = zlib.decompress(raw, -15)
+        pkg = json.loads(raw.decode("utf-8"))
+    except Exception:
+        raise ValueError("링크를 읽지 못했어요 — 링크가 잘리지 않았는지 확인해 주세요")
+    if pkg.get("v") != 1 or not pkg.get("d"):
+        raise ValueError("고객 피드백 링크가 아니에요")
+    return pkg
+
+
+def import_weblink(d, text, fb_api):
+    """고객 피드백 링크를 맥 목록의 해당 드라이브 영상에 넣기 (같은 피드백은 두 번 넣지 않음)"""
+    pkg = decode_weblink(text)
+    did, name = pkg["d"], clean_name(pkg.get("n")) or "영상"
+    fps = pkg.get("f") if pkg.get("f") in FPS_OK else None
+    with _lock:
+        data = load_links(d)
+        hit = next((n for n, v in data["videos"].items() if v.get("drive_id") == did), None)
+    actual = (hit + LINK_EXT) if hit else add_link(d, view_url(did), name, fps)
+    fb = fb_api.load_feedback(d, actual)
+    have = {it.get("remote_id") for it in fb["items"]}
+    added = 0
+    for row in pkg.get("i", []):
+        wid, sf, ef, ti, memo, author, dr, _created = (list(row) + [None] * 8)[:8]
+        rid = "web:" + str(wid)
+        if rid in have or not str(memo or "").strip():
+            continue
+        shapes = []
+        for k, flat in dr or []:
+            pts = [[flat[i] / 1000, flat[i + 1] / 1000] for i in range(0, len(flat) - 1, 2)]
+            if len(pts) >= 2:
+                shapes.append({"tool": ["pen", "arrow", "rect"][k] if k in (0, 1, 2) else "pen", "color": "#ff3b30", "points": pts})
+        fb_api.add_item(d, actual, {
+            "start_frame": int(sf or 0), "end_frame": int(ef) if isinstance(ef, int) and ef >= 0 else None,
+            "type": WEB_TYPES[ti] if isinstance(ti, int) and 0 <= ti < len(WEB_TYPES) else "기타", "memo": str(memo),
+            "drawing": shapes, "_extra": {"remote_id": rid, "origin": "client", "author": str(author or pkg.get("a") or "고객")[:40]}})
+        added += 1
+    return {"video": actual, "added": added, "total": len(pkg.get("i", [])), "author": pkg.get("a") or ""}
+

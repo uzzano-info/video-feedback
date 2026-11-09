@@ -3,515 +3,452 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>영상 피드백</title>
 <meta name="robots" content="noindex">
+<title>영상 피드백</title>
 <style>
-:root{--bg:#0f1115;--panel:#161a22;--card:#1b2029;--line:#2a3140;--line2:#353d4f;--text:#e8ecf3;--sub:#a3acbd;--dim:#788297;--accent:#ff8a3d;--ok:#3ccf8e;--warn:#f5c84b;--danger:#ff5d5d;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+:root{--bg:#0f1115;--panel:#161a22;--card:#1b2029;--line:#2a3140;--line2:#353d4f;--text:#e8ecf3;--sub:#a3acbd;--dim:#788297;--accent:#ff8a3d;--ok:#3ccf8e;--warn:#f5c84b;--danger:#ff5d5d;--blue:#9fd3ff;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-a.btn{color:inherit;text-decoration:none;display:inline-block}
 html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
-button,input,textarea{font:inherit;color:inherit}
-.app{display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:100vh}
-.main{padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.panel{background:var(--panel);border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px;height:100vh;position:sticky;top:0}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 370px;height:100vh}
+.main{display:flex;flex-direction:column;min-width:0;padding:14px 18px 10px;gap:10px;overflow-y:auto}
 .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.title{font-size:16px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.title{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title .proj{color:var(--sub);font-weight:500}.title .sep{color:var(--dim);margin:0 6px}
+.topbtn{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--sub);white-space:nowrap}
+.topbtn:hover{color:var(--text);border-color:#4a5368}
+.topbtn.blue{color:var(--blue)}.topbtn.hot{color:#1b0f04;background:var(--accent);border-color:var(--accent);font-weight:700}
 .who{display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px}
-.who input{width:130px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:5px 8px}
-.stage{background:#000;border-radius:12px;overflow:hidden;position:relative}
-video{display:block;width:100%;max-height:68vh;background:#000}
-.banner{background:#3a2a12;border:1px solid #6b4a17;color:#ffd79a;border-radius:10px;padding:8px 12px;font-size:13px}
-.banner.info{background:#13283a;border-color:#24527a;color:#a9d4ff}
-iframe.dp{display:block;width:100%;aspect-ratio:16/9;border:0;background:#000}
-.manual{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--sub)}
-.manual input{width:110px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-family:var(--mono)}
-.banner.err{background:#3a1717;border-color:#7a2a2a;color:#ffb3b3}
-.posrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.tc{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:.5px}
-.btn{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
-.btn:hover{border-color:#4a5468}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1006;font-weight:700}
-.btn.on{border-color:var(--accent);color:var(--accent)}
+.who input{width:120px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:5px 8px}
+.banner{border:1px solid #5b4420;background:#2a2112;color:#f5d28a;border-radius:8px;padding:8px 12px;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.info{border-color:#24527a;background:#13283a;color:#a9d4ff}
+.banner.ok{border-color:#1f5b40;background:#11291e;color:#8be3b7}
+.stage{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9;max-height:62vh;width:100%}
+.stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.stage .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);text-align:center;padding:20px}
+canvas.draw{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.stage.drawing canvas.draw{pointer-events:auto;cursor:crosshair}
+.stage.drawing{box-shadow:inset 0 0 0 2px var(--accent)}
+.drawbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:rgba(20,23,30,.94);border:1px solid var(--line2);border-radius:10px;padding:4px;z-index:5}
+.drawbar button{background:transparent;border:1px solid transparent;border-radius:7px;padding:4px 10px;font-size:13px;color:var(--sub)}
+.drawbar button.on{color:var(--accent);border-color:var(--accent)}
+.drawbar button:hover{color:var(--text)}
+.timerow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--sub)}
+.timerow input{width:110px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-family:var(--mono)}
+.timerow .hint{color:var(--dim);font-size:12px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
 .head{font-family:var(--mono);color:var(--sub);font-size:13px}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border:1px solid var(--line2);border-radius:999px;padding:3px 11px;cursor:pointer;font-size:13px;background:var(--card)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{border:1px solid var(--line2);border-radius:999px;padding:3px 11px;font-size:13px;background:var(--card)}
 .chip.sel{border-color:var(--c);color:var(--c);box-shadow:inset 0 0 0 1px var(--c)}
 .chip i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--c);margin-right:5px;vertical-align:1px}
-.row{display:flex;gap:8px;align-items:stretch}
+.tool{margin-left:auto;display:flex;gap:6px}
+.btn{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:6px 12px;white-space:nowrap}
+.btn:hover{border-color:#4a5368}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1b0f04;font-weight:700}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--sub)}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+.row{display:flex;gap:10px;align-items:stretch}
 textarea{flex:1;min-height:64px;resize:vertical;background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:9px 11px}
-textarea:focus,input:focus{outline:none;border-color:var(--accent)}
-.state{font-size:12px;color:var(--dim);min-height:18px}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)}
+.state{font-size:12px;color:var(--dim)}
 .state.saved{color:var(--ok)}.state.error{color:var(--danger)}
 .keys{font-size:12px;color:var(--dim)}
 .keys kbd{font-family:var(--mono);background:var(--card);border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px;color:var(--sub)}
+.panel{background:var(--panel);border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
 .ph{display:flex;align-items:center;justify-content:space-between}
-.ph b{font-size:15px}
-.cnt{color:var(--sub);font-size:13px}
-.list{overflow:auto;display:flex;flex-direction:column;gap:8px;flex:1;padding-right:2px}
+.ph b{font-size:15px}.cnt{color:var(--sub);font-size:13px}
+.filters{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.filters button{flex:1;background:transparent;border:0;border-radius:7px;padding:5px 4px;font-size:12px;color:var(--sub)}
+.filters button.on{background:#262c38;color:var(--text);font-weight:700}
+.sendbox{display:flex;flex-direction:column;gap:6px}
+.list{overflow:auto;display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;padding-right:2px}
 .item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;padding:9px 11px;cursor:pointer}
 .item:hover{border-color:#414a5f;border-left-color:var(--c)}
-.item.done{opacity:.6}
+.item.active{box-shadow:0 0 0 1.5px var(--accent)}
 .r1{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin-bottom:3px}
 .t{font-family:var(--mono);font-weight:700;color:var(--c);font-size:13px;white-space:nowrap}
 .ty{font-size:11px;color:var(--c);border:1px solid var(--c);border-radius:999px;padding:0 7px;white-space:nowrap}
-.st{margin-left:auto;font-size:11px;font-weight:700;padding:0 7px;border-radius:999px;white-space:nowrap;background:#2a3140;color:var(--sub)}
-.st.done{background:#173a2a;color:var(--ok)}.st.question{background:#2b2142;color:#c9a8ff}.st.skipped{background:#3a3115;color:var(--warn)}
+.badge{margin-left:auto;font-size:11px;font-weight:700;padding:0 7px;border-radius:999px;white-space:nowrap;background:#1d3550;color:var(--blue)}
 .memo{white-space:pre-wrap;word-break:break-word}
 .meta{font-size:12px;color:var(--dim);margin-top:3px;display:flex;gap:8px;align-items:center}
-.meta button{background:none;border:none;color:var(--dim);cursor:pointer;padding:0 2px;font-size:12px}
+.meta button{background:none;border:none;color:var(--dim);padding:0 2px;font-size:12px}
 .meta button:hover{color:var(--text)}
-.empty{color:var(--dim);text-align:center;padding:30px 10px;line-height:1.8;white-space:pre-line}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#222836;border:1px solid var(--line2);border-radius:10px;padding:9px 16px;opacity:0;transition:.2s;pointer-events:none;z-index:9}
-.toast.show{opacity:1;transform:translateX(-50%)}
-.toast.err{border-color:var(--danger);color:#ffb3b3}
-.home{max-width:880px;margin:0 auto;padding:28px 20px 60px;display:flex;flex-direction:column;gap:14px}
-.home h1{font-size:20px;margin:0}
-.home h2{font-size:15px;margin:0}
-.home p,.home li{color:var(--sub);font-size:13px;line-height:1.65;margin:0}
-.home ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:3px}
-.home label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--sub)}
-.home input,.home select{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--text)}
-.home .grid{display:grid;grid-template-columns:2fr 1fr 130px;gap:10px;align-items:end}
-.home .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.home .msg{font-size:13px;min-height:18px}.home .msg.err{color:#ffb3b3}.home .msg.ok{color:#7be0b0}
-.proj{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.proj .nm{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.proj .ct{color:var(--sub);font-size:12px;white-space:nowrap}
-.mono{font-family:var(--mono);font-size:12px;word-break:break-all;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
-.edbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.stsel{margin-left:auto;background:var(--card);border:1px solid var(--line2);border-radius:6px;color:var(--text);font-size:11px;padding:1px 4px}
-@media (max-width:700px){.home .grid{grid-template-columns:1fr}}
-@media (max-width:900px){.app{grid-template-columns:1fr}.panel{height:auto;position:static;border-left:none;border-top:1px solid var(--line)}.list{max-height:none}.keys{display:none}}
+.empty-list{color:var(--dim);text-align:center;padding:30px 10px;line-height:1.8;white-space:pre-line}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
+.mbox{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:20px 22px;width:min(600px,92vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.mbox h3{margin:0;font-size:17px}
+.mbox p{margin:0;color:var(--sub);font-size:13px;line-height:1.65}
+.mbox label{font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:5px}
+.mbox input,.mbox select,.mbox textarea{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;color:var(--text)}
+.mbox .linkbox{font-family:var(--mono);font-size:12px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;word-break:break-all;max-height:120px;overflow:auto;user-select:all}
+.mbox .mrow{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;align-items:center}
+.msg{font-size:13px;min-height:18px}.msg.err{color:#ffb3b3}.msg.ok{color:#7be0b0}
+.recent{display:flex;flex-direction:column;gap:6px}
+.recent a{display:flex;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);text-decoration:none;font-size:13px}
+.recent a span{color:var(--dim)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#222836;border:1px solid var(--line2);border-radius:10px;padding:9px 16px;opacity:0;transition:.2s;pointer-events:none;z-index:60}
+.toast.show{opacity:1;transform:translateX(-50%)}.toast.err{border-color:var(--danger);color:#ffb3b3}
+@media (max-width:980px){.app{grid-template-columns:1fr;height:auto}.panel{border-left:none;border-top:1px solid var(--line)}.list{max-height:none}.keys{display:none}}
 </style>
 </head>
 <body>
 <div class="app">
   <main class="main">
     <div class="top">
-      <div class="title" id="title">영상 피드백</div>
+      <div class="title" id="title"><span class="proj">영상 피드백</span></div>
       <label class="who">이름 <input id="author" maxlength="40" placeholder="예: 김대리"></label>
+      <button class="topbtn" id="addBtn" title="구글 드라이브에 올린 영상을 링크로 불러오기">＋ 드라이브 영상</button>
+      <button class="topbtn blue" id="shareBtn" title="고객에게 보낼 링크 복사">🔗 고객 링크</button>
     </div>
-    <div class="edbar" id="edbar" hidden>
-      <a class="btn" href="./" id="edHome">← 내 영상</a>
-      <button class="btn" id="edCopy">🔗 고객 링크 복사</button>
-      <span class="cnt">편집자 모드 — 항목마다 상태를 바꿀 수 있어요 (고객에게는 상태만 보여요)</span>
+    <div class="banner" id="banner" hidden></div>
+    <div class="stage" id="stage">
+      <div class="empty" id="stageEmpty">위의 ＋ 드라이브 영상으로 구글 드라이브 링크를 불러오세요.</div>
+      <canvas class="draw" id="draw"></canvas>
+      <div class="drawbar" id="drawBar" hidden>
+        <button data-tool="pen" class="on">✏️ 펜</button><button data-tool="arrow">↗ 화살표</button><button data-tool="rect">▢ 네모</button>
+        <button id="undoBtn">되돌리기</button><button id="clearBtn">지우기</button><button id="drawDone">완료</button>
+      </div>
     </div>
-    <div id="banner" class="banner" hidden></div>
-    <div class="stage" id="stage"><video id="v" controls playsinline preload="auto"></video></div>
-    <div class="manual" id="manual" hidden>
-      <label>시간 <input id="mStart" placeholder="예: 1:23"></label>
-      <label>~ 끝 (선택) <input id="mEnd" placeholder="예: 1:30"></label>
-      <span>플레이어 아래에 나오는 시간을 적어 주세요</span>
-    </div>
-    <div class="posrow" id="posrow">
-      <span class="tc" id="tc">00:00:00:00</span>
-      <button class="btn" id="prevF" title="1프레임 뒤로 (←)">◀ 1프레임</button>
-      <button class="btn" id="nextF" title="1프레임 앞으로 (→)">1프레임 ▶</button>
-      <span style="flex:1"></span>
-      <button class="btn" id="inBtn" title="구간 시작 (I)">⇤ 구간 시작</button>
-      <button class="btn" id="outBtn" title="구간 끝 (O)">구간 끝 ⇥</button>
+    <div class="timerow">
+      <label>시간 <input id="tStart" placeholder="예: 1:23"></label>
+      <label>~ 끝 (선택) <input id="tEnd" placeholder="예: 1:30"></label>
+      <span class="hint">플레이어 아래에 나오는 시간을 적어 주세요 (분:초 또는 00:01:23:15)</span>
     </div>
     <div class="card">
-      <div class="head" id="head">재생하다가 멈추고 피드백을 남겨 주세요</div>
-      <div class="chips" id="chips"></div>
+      <div class="head" id="head">시간을 적고 피드백을 남겨 주세요</div>
+      <div class="chips" id="chips"><span class="tool"><button class="btn" id="drawBtn" title="영상 위에 그려서 위치 표시 (D)">✏️ 그리기 D</button></span></div>
       <div class="row">
         <textarea id="memo" placeholder="어떻게 고칠지 적어 주세요 (예: 여기 말 더듬는 부분 잘라 주세요)"></textarea>
         <button class="btn primary" id="saveBtn">남기기</button>
       </div>
-      <div class="state" id="state"></div>
+      <div class="state" id="state">Enter로 남기기 · Shift+Enter 줄바꿈 · 남긴 피드백은 이 브라우저에 저장돼요</div>
     </div>
-    <div class="keys"><kbd>Space</kbd> 재생·멈춤 · <kbd>←</kbd><kbd>→</kbd> 1프레임 (<kbd>Shift</kbd> 1초) · <kbd>M</kbd> 피드백 쓰기 · <kbd>Enter</kbd> 남기기 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>I</kbd><kbd>O</kbd> 구간 시작·끝 · <kbd>Esc</kbd> 취소</div>
+    <div class="keys"><kbd>T</kbd> 시간 칸 · <kbd>M</kbd> 피드백 쓰기 · <kbd>Enter</kbd> 남기기 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>D</kbd> 화면에 그리기 · <kbd>Esc</kbd> 그리기 끝내기</div>
   </main>
   <aside class="panel">
     <div class="ph"><b>피드백</b><span class="cnt" id="cnt"></span></div>
+    <div class="filters" id="filters"></div>
+    <div class="sendbox">
+      <button class="topbtn hot" id="sendBtn">📤 피드백 보내기</button>
+      <button class="topbtn" id="recvBtn">📥 받은 피드백 링크 열기</button>
+    </div>
     <div class="list" id="list"></div>
   </aside>
 </div>
-<div class="home" id="home" hidden>
-  <div class="top"><h1 style="flex:1">🎬 영상 피드백</h1><button class="btn" id="hSetBtn">⚙ 연결 설정</button></div>
-  <div class="card" id="hSetup" hidden>
-    <h2>구글 연결 (처음 한 번)</h2>
-    <p>피드백은 내 구글 계정의 시트에 저장돼요. 고객은 로그인 없이 링크로 들어와요.</p>
-    <ol>
-      <li><button class="btn" id="hCode">① 구글에 붙여넣을 코드 복사</button></li>
-      <li>② script.google.com → [새 프로젝트] → 내용을 지우고 붙여넣기 → 저장(⌘S)</li>
-      <li>③ [배포] → [새 배포] → 톱니바퀴에서 [웹 앱] → 실행: 나 · 액세스: <b>모든 사용자</b> → [배포]</li>
-      <li>④ 권한 창: 내 계정 → [고급] → [(안전하지 않은) 페이지로 이동] → [허용] (직접 만든 코드라서 나오는 안내예요)</li>
-      <li>⑤ 나온 웹 앱 URL(…/exec)을 아래에 붙여넣기</li>
-    </ol>
-    <label>웹 앱 URL <input id="hUrl" placeholder="https://script.google.com/macros/s/…/exec"></label>
-    <label>연결 비밀키 (맥 도구와 이미 연결했으면 맥에서 복사해 넣기 — 처음이면 비워 두세요) <input id="hKey" placeholder="비워 두면 새로 만들어요"></label>
-    <label>드라이브 API 키 (선택 — 프레임 단위로 정확한 재생·화면 캡처) <input id="hDkey" placeholder="AIza…"></label>
-    <p>API 키 만들기: console.cloud.google.com → 새 프로젝트 → "Google Drive API" [사용] → [API 및 서비스 › 사용자 인증 정보] → [API 키] → 키 수정 › API 제한: Google Drive API만 → 저장. 키가 없으면 드라이브 기본 플레이어로 열리고 시간을 직접 적어요.</p>
-    <div class="acts"><button class="btn primary" id="hConnect">연결</button><span class="msg" id="hMsg"></span></div>
-    <div id="hKeyBox" hidden><p>연결 비밀키 — 맥의 피드백 도구도 같은 곳에 연결하려면 이 키를 맥의 연결 설정에 넣어 주세요.</p><div class="acts"><span class="mono" id="hKeyShow"></span><button class="btn" id="hKeyCopy">복사</button></div></div>
-  </div>
-  <div class="card" id="hOpen" hidden>
-    <h2>영상 링크 열기</h2>
-    <p>구글 드라이브에서 공유를 <b>"링크가 있는 모든 사용자"</b>로 바꾸고 링크를 붙여넣으세요. 열린 화면의 주소가 곧 고객 링크예요.</p>
-    <div class="grid">
-      <label>드라이브 공유 링크 <input id="hLink" placeholder="https://drive.google.com/file/d/…/view"></label>
-      <label>영상 이름 <input id="hName" placeholder="예: intro_v2 (타임라인과 같은 이름 추천)"></label>
-      <label>프레임레이트 <select id="hFps"><option value="30000/1001">29.97</option><option value="30/1">30</option><option value="24000/1001">23.976</option><option value="24/1">24</option><option value="25/1">25</option><option value="60000/1001">59.94</option><option value="60/1">60</option></select></label>
-    </div>
-    <div class="acts"><button class="btn primary" id="hGo">열기</button><span class="msg" id="hGoMsg"></span></div>
-  </div>
-  <div class="card" id="hList" hidden>
-    <div class="ph"><h2>내 영상</h2><span class="cnt" id="hCnt"></span></div>
-    <div id="hProjects" style="display:flex;flex-direction:column;gap:8px"></div>
-  </div>
-</div>
+<div class="modal" id="modal" hidden><div class="mbox" id="mbox"></div></div>
 <div class="toast" id="toast"></div>
-<script src="config.js"></script>
 <script>
-var BOOT = null;   // 구글 Apps Script 페이지면 영상 정보가 여기 들어오고, GitHub Pages면 null (주소에서 읽음)
-var BACKEND = null;    // GitHub Pages: 피드백을 저장하는 구글 Apps Script 주소
-function backendCall(fn, args) {
-  return fetch(BACKEND, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'client', fn: fn, args: args }) })
-    .then(function (r) { return r.json(); })
-    .then(function (j) { if (!j.ok) throw new Error(j.error || '알 수 없는 오류'); return j.result; });
+'use strict';
+/* 영상 피드백 (GitHub Pages) — 서버·로그인 없이 동작
+   - 영상: 구글 드라이브 플레이어 (주소 ?v=<드라이브 ID>&n=<이름>&f=<프레임레이트>)
+   - 피드백: 이 브라우저에 저장, [피드백 보내기]로 링크(#fb=…)를 만들어 주고받음 */
+const TYPES = ['컷 삭제', '길이 조절', '순서 변경', '자막·텍스트 수정', '클립 교체', '기타'];
+const COLORS = { '컷 삭제': '#ff5d5d', '길이 조절': '#f5c84b', '순서 변경': '#a77bff', '자막·텍스트 수정': '#4d8dff', '클립 교체': '#2ec5d3', '기타': '#ff7eb6' };
+const FPS = [['30000/1001', '29.97'], ['30/1', '30'], ['24000/1001', '23.976'], ['24/1', '24'], ['25/1', '25'], ['60000/1001', '59.94'], ['60/1', '60']];
+const DRAW_COLOR = '#ff3b30';
+const $ = s => document.querySelector(s);
+const h = (tag, props = {}, ...kids) => {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') el.className = v; else if (k === 'text') el.textContent = v; else if (k === 'style') el.style.cssText = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (v === true) el.setAttribute(k, ''); else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) { if (kid == null || kid === false) continue; el.append(kid.nodeType ? kid : document.createTextNode(kid)); }
+  return el;
+};
+const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(toast._t); toast._t = setTimeout(() => t.className = 'toast', err ? 3500 : 2200); }
+async function copy(text, ok) { try { await navigator.clipboard.writeText(text); toast(ok || '복사했어요'); return true; } catch (e) { prompt('복사해 주세요', text); return false; } }
+
+/* ---------- 영상 정보 ---------- */
+let video = null;          // {id, name, fps}
+let items = [];            // 피드백
+let rate = { fd: 1001 / 30000, base: 30 };
+let selType = null, filter = 'all', activeId = null, viewShapes = null;
+const driveIdOf = u => { const m = /\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(u || '') || /[?&]id=([A-Za-z0-9_-]{10,})/.exec(u || '') || /^([A-Za-z0-9_-]{25,})$/.exec((u || '').trim()); return m ? m[1] : null; };
+function setRate(f) { const [n, d] = String(f || '30000/1001').split('/').map(Number); const num = n || 30, den = d || 1; rate = { fd: den / num, base: Math.round(num / den) }; }
+const pad = n => String(n).padStart(2, '0');
+function tcOf(n) { n = Math.max(0, Math.round(n)); const f = n % rate.base, s = Math.floor(n / rate.base); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}:${pad(f)}`; }
+function labelOf(n) {   // 플레이어에 보이는 시간(분:초)으로 표시
+  const s = Math.round(n * rate.fd), hh = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return (hh ? hh + ':' + pad(m) : m) + ':' + pad(s % 60);
 }
-var EDITOR = null;     // 편집자(나) 설정: 이 브라우저에만 저장 {url, key, dkey}
-try { EDITOR = JSON.parse(localStorage.getItem('fbEditor') || 'null'); } catch (e) { EDITOR = null; }
-function editorCall(action, payload, conf) {
-  conf = conf || EDITOR;
-  var body = { action: action, key: conf.key };
-  for (var k in (payload || {})) body[k] = payload[k];
-  return fetch(conf.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
-    .then(function (r) { return r.json(); })
-    .then(function (j) { if (!j.ok) throw new Error(j.error || '알 수 없는 오류'); return j; });
+function parseTime(str) {   // "1:23"(분:초) · "1:02:03" · "83" · "00:01:23:15"(타임코드) → 프레임
+  str = String(str || '').trim(); if (!str) return null;
+  const p = str.split(/[:;]/).map(x => x === '' ? NaN : +x);
+  if (p.some(isNaN) || p.length > 4) return NaN;
+  if (p.length === 4) return (p[0] * 3600 + p[1] * 60 + p[2]) * rate.base + p[3];
+  const sec = p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p.length === 2 ? p[0] * 60 + p[1] : p[0];
+  return Math.floor(sec / rate.fd + 1e-4);
 }
-function sidOf(url) { var m = /\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/.exec(url || ''); return m ? m[1] : encodeURIComponent(url || ''); }
-function linkFor(token, conf) { return location.origin + location.pathname + '?p=' + token + '&s=' + sidOf((conf || EDITOR).url); }
-function main(BOOT) {
-  'use strict';
-  var TYPES = ['컷 삭제', '길이 조절', '순서 변경', '자막·텍스트 수정', '클립 교체', '기타'];
-  var COLORS = { '컷 삭제': '#ff5d5d', '길이 조절': '#f5c84b', '순서 변경': '#a77bff', '자막·텍스트 수정': '#4d8dff', '클립 교체': '#2ec5d3', '기타': '#ff7eb6' };
-  var STATUS = { todo: '확인 중', done: '반영됨 ✓', question: '확인 필요', skipped: '보류' };
-  var $ = function (s) { return document.querySelector(s); };
-  var v = $('#v'), memoEl = $('#memo');
-  var items = [], selType = null, draft = null, saving = false;
+const linkFor = v => `${location.origin}${location.pathname}?v=${encodeURIComponent(v.id)}&n=${encodeURIComponent(v.name)}&f=${encodeURIComponent(v.fps)}`;
+const keyOf = () => 'fbw:' + video.id;
+function saveLocal() { if (video && !store.set(keyOf(), { name: video.name, fps: video.fps, items })) setState('error', '브라우저 저장 공간이 꽉 찼어요'); }
+function remember() {
+  const r = (store.get('fbw:recent') || []).filter(x => x.id !== video.id);
+  r.unshift({ id: video.id, name: video.name, fps: video.fps, at: Date.now() });
+  store.set('fbw:recent', r.slice(0, 12));
+}
 
-  // 프레임 계산 (예: "30000/1001" = 29.97fps)
-  var fr = String(BOOT.fps || '30/1').split('/'), num = +fr[0] || 30, den = +fr[1] || 1;
-  var fd = den / num, base = Math.round(num / den);
-  function frameAt(t) { return Math.max(0, Math.floor((t || 0) / fd + 1e-4)); }
-  function frameTime(n) { return (n + 0.5) * fd; }
-  function pad(n) { return (n < 10 ? '0' : '') + n; }
-  function tcOf(n) { var f = n % base, s = Math.floor(n / base); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(s % 60) + ':' + pad(f); }
+function openVideo(v, opts = {}) {
+  video = v; setRate(v.fps);
+  const saved = store.get(keyOf());
+  items = saved && saved.items ? saved.items : [];
+  $('#title').replaceChildren(h('span', { class: 'proj', text: '영상 피드백' }), h('span', { class: 'sep', text: '·' }), h('span', { text: v.name }));
+  document.title = v.name + ' · 영상 피드백';
+  const stage = $('#stage');
+  stage.querySelectorAll('iframe').forEach(f => f.remove());
+  $('#stageEmpty').hidden = true;
+  stage.prepend(h('iframe', { src: `https://drive.google.com/file/d/${encodeURIComponent(v.id)}/preview`, allow: 'autoplay; fullscreen', allowfullscreen: true }));
+  if (!opts.keepUrl) history.replaceState(null, '', linkFor(v));
+  remember(); renderAll();
+}
 
-  var store = {
-    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-    set: function (k, val) { try { localStorage.setItem(k, val); } catch (e) {} }
-  };
-  var owner = store.get('fbOwner');
-  if (!owner) { owner = 'o' + Math.random().toString(36).slice(2) + Date.now().toString(36); store.set('fbOwner', owner); }
-  $('#author').value = store.get('fbAuthor') || '';
-  $('#author').addEventListener('input', function () { store.set('fbAuthor', this.value.trim()); });
-
-  function call(fn) {   // google.script.run(Apps Script 페이지) 또는 fetch(GitHub Pages) 를 Promise로
-    var args = Array.prototype.slice.call(arguments, 1);
-    if (!(window.google && google.script && google.script.run)) return backendCall(fn, args);
-    return new Promise(function (res, rej) {
-      var r = google.script.run.withSuccessHandler(res).withFailureHandler(function (e) { rej(new Error((e && e.message) || String(e))); });
-      r[fn].apply(r, args);
-    });
-  }
-  function toast(msg, err) {
-    var t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
-    clearTimeout(toast._t); toast._t = setTimeout(function () { t.className = 'toast'; }, err ? 3500 : 2000);
-  }
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-
-  // ---------- 영상 ----------
-  $('#title').textContent = BOOT.name;
-  document.title = BOOT.name + ' · 영상 피드백';
-  // 재생: 드라이브 API(키가 있을 때) → 프레임 단위로 정확. 안 되면 드라이브 기본 플레이어 + 시간 직접 입력
-  var manual = false;
-  function useDrivePlayer(reason) {
-    if (manual) return;
-    manual = true;
-    var f = document.createElement('iframe'); f.className = 'dp'; f.allow = 'autoplay; fullscreen'; f.setAttribute('allowfullscreen', '');
-    f.src = 'https://drive.google.com/file/d/' + encodeURIComponent(BOOT.drive_id) + '/preview';
-    v.removeAttribute('src'); v.load(); v.replaceWith(f);
-    $('#posrow').hidden = true; $('#manual').hidden = false;
-    var b = $('#banner'); b.className = 'banner info'; b.hidden = false;
-    b.textContent = '드라이브 플레이어로 재생해요. 고칠 곳의 시간을 "시간" 칸에 적고 피드백을 남겨 주세요.' + (reason ? ' (' + reason + ')' : '');
-    document.querySelector('.keys').hidden = true;
-  }
-  if (BOOT.key) {
-    v.crossOrigin = 'anonymous';   // 화면 캡처를 같이 보내려고
-    v.addEventListener('error', function () { useDrivePlayer('정확한 재생을 불러오지 못했어요'); });
-    v.src = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(BOOT.drive_id) + '?alt=media&key=' + encodeURIComponent(BOOT.key);
-  } else {
-    useDrivePlayer();
-  }
-  function parseTime(str) {   // "1:23", "01:02:03", "83", "00:01:23:15"(프레임) → 프레임 번호
-    str = String(str || '').trim(); if (!str) return null;
-    var p = str.split(/[:;.]/).map(function (x) { return x === '' ? NaN : +x; });
-    if (p.some(isNaN) || p.length > 4) return NaN;
-    var sec, fr = 0;
-    if (p.length === 4) { sec = p[0] * 3600 + p[1] * 60 + p[2]; fr = p[3]; }
-    else if (p.length === 3) sec = p[0] * 3600 + p[1] * 60 + p[2];
-    else if (p.length === 2) sec = p[0] * 60 + p[1];
-    else sec = p[0];
-    return p.length === 4 ? sec * base + fr : Math.floor(sec / fd + 1e-4);   // 타임코드는 그대로, 분:초는 실제 시간 → 프레임
-  }
-
-  function tick() {
-    if (!manual) $('#tc').textContent = tcOf(frameAt(v.currentTime));
-    requestAnimationFrame(tick);
-  }
-  function stepBy(n) { v.pause(); v.currentTime = frameTime(Math.max(0, frameAt(v.currentTime) + n)); }
-  function seekSec(s) { v.pause(); v.currentTime = Math.max(0, Math.min((v.duration || 1e9) - fd, v.currentTime + s)); }
-  $('#prevF').onclick = function () { stepBy(-1); };
-  $('#nextF').onclick = function () { stepBy(1); };
-
-  // ---------- 피드백 쓰기 ----------
-  function startDraft() { if (manual) return; if (!draft) { v.pause(); draft = { start: frameAt(v.currentTime), end: null }; } renderHead(); }
-  function setIn() { v.pause(); draft = { start: frameAt(v.currentTime), end: draft && draft.end != null && draft.end > frameAt(v.currentTime) ? draft.end : null }; renderHead(); toast('구간 시작 ' + tcOf(draft.start)); }
-  function setOut() {
-    v.pause(); var f = frameAt(v.currentTime);
-    if (!draft) draft = { start: f, end: null };
-    if (f <= draft.start) { toast('구간 끝은 시작보다 뒤여야 해요', true); return; }
-    draft.end = f; renderHead(); toast('구간 끝 ' + tcOf(f));
-  }
-  $('#inBtn').onclick = setIn; $('#outBtn').onclick = setOut;
-  function renderHead() {
-    var h = $('#head');
-    if (!draft) { h.textContent = '재생하다가 멈추고 피드백을 남겨 주세요'; return; }
-    h.textContent = tcOf(draft.start) + (draft.end != null ? ' ~ ' + tcOf(draft.end) : '') + ' 에 남김';
-  }
-  function renderChips() {
-    var box = $('#chips'); box.innerHTML = '';
-    TYPES.forEach(function (t) {
-      var c = el('span', 'chip' + (selType === t ? ' sel' : '')); c.style.setProperty('--c', COLORS[t]);
-      c.appendChild(el('i')); c.appendChild(document.createTextNode(t));
-      c.onclick = function () { selType = selType === t ? null : t; renderChips(); memoEl.focus(); };
-      box.appendChild(c);
-    });
-  }
-  memoEl.addEventListener('focus', function () { startDraft(); });
-  memoEl.addEventListener('input', function () { store.set('fbDraft:' + BOOT.token, memoEl.value); setState(memoEl.value ? 'draft' : ''); });
-  memoEl.value = store.get('fbDraft:' + BOOT.token) || '';
-  memoEl.addEventListener('keydown', function (e) {
-    e.stopPropagation();
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); save(); }
-    if (e.key === 'Escape') { memoEl.blur(); }
+/* ---------- 피드백 링크 (보내기·받기) ---------- */
+const b64u = {
+  enc(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  dec(str) { const s = atob(str.replace(/-/g, '+').replace(/_/g, '/')); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+};
+async function pipe(bytes, Stream, mode) { const s = new Blob([bytes]).stream().pipeThrough(new Stream(mode)); return new Uint8Array(await new Response(s).arrayBuffer()); }
+async function pack(obj) {
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  if (window.CompressionStream) { try { return 'z' + b64u.enc(await pipe(raw, CompressionStream, 'deflate-raw')); } catch (e) {} }
+  return 'j' + b64u.enc(raw);
+}
+async function unpack(str) {
+  const kind = str[0], bytes = b64u.dec(str.slice(1));
+  const raw = kind === 'z' ? await pipe(bytes, DecompressionStream, 'deflate-raw') : bytes;
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+function shrinkShapes(shapes) {   // 링크를 짧게: 좌표 0~1000 정수, 펜은 점을 줄임
+  return (shapes || []).map(s => {
+    let pts = s.points; if (s.tool === 'pen' && pts.length > 120) { const step = Math.ceil(pts.length / 120); pts = pts.filter((_, i) => i % step === 0 || i === pts.length - 1); }
+    return [['pen', 'arrow', 'rect'].indexOf(s.tool), pts.flatMap(p => [Math.round(p[0] * 1000), Math.round(p[1] * 1000)])];
   });
-  $('#saveBtn').onclick = function () { save(); };
-  function setState(st, msg) {
-    var s = $('#state'), now = new Date().toTimeString().slice(0, 8);
-    var map = { '': ['', ''], draft: ['', '✎ 작성 중'], saving: ['', '저장 중…'], saved: ['saved', '✓ 저장됨 ' + now], error: ['error', '⚠ 저장 실패 — ' + (msg || '') + ' (다시 눌러 주세요)'] };
-    var m = map[st] || map['']; s.className = 'state ' + m[0]; s.textContent = m[1];
+}
+function growShapes(arr) {
+  return (arr || []).map(([k, flat]) => { const pts = []; for (let i = 0; i + 1 < flat.length; i += 2) pts.push([flat[i] / 1000, flat[i + 1] / 1000]); return { tool: ['pen', 'arrow', 'rect'][k] || 'pen', color: DRAW_COLOR, points: pts }; })
+    .filter(s => s.points.length >= 2);
+}
+async function makePackage(list) {
+  return pack({ v: 1, d: video.id, n: video.name, f: video.fps, a: $('#author').value.trim(),
+    i: list.map(it => [it.id, it.start_frame, it.end_frame == null ? -1 : it.end_frame, TYPES.indexOf(it.type), it.memo, it.author || '', shrinkShapes(it.drawing), it.created_at || ''] ) });
+}
+async function receive(str) {
+  const pkg = await unpack(str);
+  if (!pkg || pkg.v !== 1 || !pkg.d) throw new Error('피드백 링크가 아니에요');
+  const v = { id: pkg.d, name: pkg.n || '영상', fps: pkg.f || '30000/1001' };
+  if (!video || video.id !== v.id) openVideo(v, { keepUrl: true });
+  const have = new Set(items.map(x => x.id));
+  let added = 0;
+  for (const [id, sf, ef, ti, memo, author, dr, created] of pkg.i || []) {
+    if (have.has(id)) continue;
+    items.push({ id, start_frame: sf, end_frame: ef < 0 ? null : ef, type: TYPES[ti] || '기타', memo, author: author || pkg.a || '고객', drawing: growShapes(dr), created_at: created, received: true });
+    added++;
   }
-  function snapshot() {   // 고친 곳 화면 캡처 (작게) — 드라이브가 막으면 없이 보냄
-    if (manual) return null;
-    try {
-      if (!v.videoWidth || v.readyState < 2) return null;
-      var tries = [[480, 0.6], [360, 0.5], [240, 0.45]];
-      for (var i = 0; i < tries.length; i++) {
-        var w = Math.min(tries[i][0], v.videoWidth), hgt = Math.round(v.videoHeight * w / v.videoWidth);
-        var c = document.createElement('canvas'); c.width = w; c.height = hgt;
-        c.getContext('2d').drawImage(v, 0, 0, w, hgt);
-        var url = c.toDataURL('image/jpeg', tries[i][1]);
-        if (url.length < 45000) return url;
-      }
-    } catch (e) {}
-    return null;
-  }
-  function save() {
-    var memo = memoEl.value.trim();
-    if (!memo) { toast('내용을 적어 주세요', true); memoEl.focus(); return; }
-    if (saving) return;
-    var author = $('#author').value.trim();
-    if (!author) { toast('이름을 먼저 적어 주세요 (오른쪽 위)', true); $('#author').focus(); return; }
-    if (manual) {   // 드라이브 플레이어 모드: 적은 시간 사용
-      var sf = parseTime($('#mStart').value), ef = parseTime($('#mEnd').value);
-      if (sf === null || isNaN(sf)) { toast('고칠 곳의 시간을 적어 주세요 (예: 1:23)', true); $('#mStart').focus(); return; }
-      if (isNaN(ef)) { toast('끝 시간 형식을 확인해 주세요 (예: 1:30)', true); $('#mEnd').focus(); return; }
-      draft = { start: sf, end: ef !== null && ef > sf ? ef : null };
-    }
-    startDraft();
-    var it = { start_frame: draft.start, end_frame: draft.end, type: selType || '기타', memo: memo, author: author, snapshot: snapshot() };
-    saving = true; setState('saving');
-    call('clientAdd', BOOT.token, it, owner).then(function (row) {
-      saving = false; setState('saved');
-      items.push(row); render();
-      memoEl.value = ''; store.set('fbDraft:' + BOOT.token, ''); draft = null; $('#mStart').value = ''; $('#mEnd').value = ''; selType = null; renderChips(); renderHead(); memoEl.blur();
-      toast('남겼어요');
-    }).catch(function (e) { saving = false; setState('error', e.message); });
-  }
+  saveLocal(); renderAll();
+  history.replaceState(null, '', linkFor(v));
+  const b = $('#banner'); b.className = 'banner ok'; b.hidden = false;
+  b.replaceChildren(`📥 ${pkg.a || '고객'} 님이 보낸 피드백 ${(pkg.i || []).length}개` + (added ? ` — 새로 ${added}개를 목록에 넣었어요.` : ' — 이미 목록에 있어요.'),
+    h('button', { class: 'btn ghost', text: '닫기', onclick: () => b.hidden = true }));
+  return added;
+}
 
-  // ---------- 목록 ----------
-  function render() {
-    items.sort(function (a, b) { return a.start_frame - b.start_frame || (a.created_at < b.created_at ? -1 : 1); });
-    var list = $('#list'); list.innerHTML = '';
-    var left = items.filter(function (x) { return (x.status || 'todo') === 'todo'; }).length;
-    $('#cnt').textContent = '전체 ' + items.length + (left ? ' · 확인 중 ' + left : '');
-    if (!items.length) { list.appendChild(el('div', 'empty', '아직 남긴 피드백이 없어요.\n영상을 보다가 고칠 곳에서 멈추고 피드백을 적어 주세요.')); return; }
-    items.forEach(function (it) {
-      var st = it.status || 'todo';
-      var box = el('div', 'item' + (st === 'done' ? ' done' : '')); box.style.setProperty('--c', COLORS[it.type] || COLORS['기타']);
-      var r1 = el('div', 'r1');
-      r1.appendChild(el('span', 't', tcOf(+it.start_frame) + (it.end_frame !== '' && it.end_frame != null ? ' ~ ' + tcOf(+it.end_frame) : '')));
-      r1.appendChild(el('span', 'ty', it.type || '기타'));
-      if (window.__isEditor) {
-        var sel = el('select', 'stsel');
-        ['todo', 'done', 'question', 'skipped'].forEach(function (k) { var o = el('option', '', { todo: '대기', done: '반영됨', question: '질문', skipped: '보류' }[k]); o.value = k; if (k === st) o.selected = true; sel.appendChild(o); });
-        sel.onclick = function (e) { e.stopPropagation(); };
-        sel.onchange = function () { window.__setStatus(it, sel.value); };
-        r1.appendChild(sel);
-      } else r1.appendChild(el('span', 'st ' + st, STATUS[st] || st));
-      box.appendChild(r1);
-      box.appendChild(el('div', 'memo', it.memo));
-      var meta = el('div', 'meta'); meta.appendChild(el('span', '', it.author || ''));
-      if (it.mine && st === 'todo') {
-        var ed = el('button', '', '수정'); ed.onclick = function (e) { e.stopPropagation(); edit(it); };
-        var del = el('button', '', '삭제'); del.onclick = function (e) { e.stopPropagation(); remove(it); };
-        meta.appendChild(ed); meta.appendChild(del);
-      }
-      box.appendChild(meta);
-      box.onclick = function () { if (manual) return; v.pause(); v.currentTime = frameTime(+it.start_frame); };
-      list.appendChild(box);
-    });
-  }
-  function edit(it) {
-    var memo = prompt('피드백 수정', it.memo);
-    if (memo == null || !memo.trim() || memo.trim() === it.memo) return;
-    call('clientUpdate', BOOT.token, it.id, owner, memo.trim()).then(function () { it.memo = memo.trim(); render(); toast('수정했어요'); })
-      .catch(function (e) { toast('수정하지 못했어요: ' + e.message, true); });
-  }
-  function remove(it) {
-    if (!confirm('이 피드백을 지울까요?')) return;
-    call('clientDelete', BOOT.token, it.id, owner).then(function () { items = items.filter(function (x) { return x.id !== it.id; }); render(); toast('지웠어요'); })
-      .catch(function (e) { toast('지우지 못했어요: ' + e.message, true); });
-  }
-  function load() {
-    return call('clientLoad', BOOT.token, owner).then(function (res) { items = res.items || []; render(); })
-      .catch(function (e) { toast('목록을 불러오지 못했어요: ' + e.message, true); });
-  }
-
-  // ---------- 단축키 ----------
-  document.addEventListener('keydown', function (e) {
-    var tag = (e.target && e.target.tagName) || '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (manual) { if (e.code === 'KeyM') { e.preventDefault(); $('#mStart').focus(); } return; }
-    var done = function () { e.preventDefault(); };
-    switch (e.code) {
-      case 'Space': done(); if (v.paused) v.play(); else v.pause(); break;
-      case 'ArrowLeft': done(); if (e.shiftKey) seekSec(-1); else stepBy(-1); break;
-      case 'ArrowRight': done(); if (e.shiftKey) seekSec(1); else stepBy(1); break;
-      case 'KeyM': done(); startDraft(); memoEl.focus(); break;
-      case 'KeyI': done(); setIn(); break;
-      case 'KeyO': done(); setOut(); break;
-      case 'Escape': done(); draft = null; renderHead(); break;
-    }
-  }, true);
-
-  var isEditor = !!(EDITOR && EDITOR.url === BACKEND && BACKEND);
-  if (isEditor) {
-    $('#edbar').hidden = false;
-    if (!$('#author').value) $('#author').value = '편집자';
-    $('#edCopy').onclick = function () {
-      var u = linkFor(BOOT.token);
-      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { toast('고객 링크를 복사했어요'); })
-        .catch(function () { prompt('고객 링크 (복사해서 보내 주세요)', u); });
+/* ---------- 화면 그리기 ---------- */
+const cv = $('#draw'), ctx = cv.getContext('2d');
+let drawMode = false, tool = 'pen', inProgress = null, draftShapes = [];
+function paintShapes(c, shapes, r) {
+  const lw = Math.max(2.5, r.h * 0.006); c.lineCap = 'round'; c.lineJoin = 'round';
+  for (const s of shapes) {
+    const P = s.points.map(([x, y]) => [r.x + x * r.w, r.y + y * r.h]);
+    const path = () => {
+      c.beginPath();
+      if (s.tool === 'pen') { c.moveTo(...P[0]); P.slice(1).forEach(p => c.lineTo(...p)); }
+      else if (s.tool === 'rect') { const [a, b] = P; c.rect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])); }
+      else { const [a, b] = P, ang = Math.atan2(b[1] - a[1], b[0] - a[0]), hl = Math.max(12, r.h * 0.035);
+        c.moveTo(...a); c.lineTo(...b); c.moveTo(b[0] - hl * Math.cos(ang - 0.45), b[1] - hl * Math.sin(ang - 0.45)); c.lineTo(...b); c.lineTo(b[0] - hl * Math.cos(ang + 0.45), b[1] - hl * Math.sin(ang + 0.45)); }
     };
+    path(); c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = lw + 3; c.stroke();
+    path(); c.strokeStyle = s.color || DRAW_COLOR; c.lineWidth = lw; c.stroke();
   }
-  window.__setStatus = function (it, st) {   // 편집자: 상태 바꾸기
-    editorCall('setstatus', { token: BOOT.token, id: it.id, status: st }).then(function () { it.status = st; render(); toast('상태를 바꿨어요'); })
-      .catch(function (e) { toast('바꾸지 못했어요: ' + e.message, true); render(); });
-  };
-  window.__isEditor = isEditor;
-  renderChips(); renderHead(); load(); requestAnimationFrame(tick);
-  if (memoEl.value) setState('draft');
-  setInterval(function () { if (!document.hidden) load(); }, 30000);   // 편집자가 반영하면 상태가 바뀌어요
+}
+function drawOverlay() {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, hh = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(hh * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+  const shapes = drawMode ? [...draftShapes, ...(inProgress ? [inProgress] : [])] : (viewShapes || (draftShapes.length ? draftShapes : null));
+  if (shapes && shapes.length) paintShapes(ctx, shapes, { x: 0, y: 0, w, h: hh });
+}
+function posOf(e) { const b = cv.getBoundingClientRect(); const c = v => Math.min(1, Math.max(0, v)); return [c((e.clientX - b.left) / b.width), c((e.clientY - b.top) / b.height)]; }
+cv.addEventListener('pointerdown', e => { if (!drawMode) return; cv.setPointerCapture(e.pointerId); const p = posOf(e); inProgress = { tool, color: DRAW_COLOR, points: [p, p] }; drawOverlay(); });
+cv.addEventListener('pointermove', e => { if (!inProgress) return; const p = posOf(e); if (tool === 'pen') inProgress.points.push(p); else inProgress.points[1] = p; drawOverlay(); });
+cv.addEventListener('pointerup', () => { if (!inProgress) return; const s = inProgress; inProgress = null; const [a, b] = [s.points[0], s.points[s.points.length - 1]]; if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.005 || s.points.length > 3) draftShapes.push(s); drawOverlay(); renderHead(); });
+function enterDraw() { if (!video) return toast('먼저 영상을 불러와 주세요', true); viewShapes = null; activeId = null; drawMode = true; $('#stage').classList.add('drawing'); $('#drawBar').hidden = false; $('#drawBtn').classList.add('on'); drawOverlay(); renderList(); }
+function exitDraw() { drawMode = false; inProgress = null; $('#stage').classList.remove('drawing'); $('#drawBar').hidden = true; $('#drawBtn').classList.remove('on'); drawOverlay(); renderHead(); }
+$('#drawBtn').onclick = () => drawMode ? exitDraw() : enterDraw();
+$('#drawDone').onclick = exitDraw;
+$('#undoBtn').onclick = () => { draftShapes.pop(); drawOverlay(); renderHead(); };
+$('#clearBtn').onclick = () => { draftShapes = []; drawOverlay(); renderHead(); };
+document.querySelectorAll('#drawBar [data-tool]').forEach(b => b.onclick = () => { tool = b.dataset.tool; document.querySelectorAll('#drawBar [data-tool]').forEach(x => x.classList.toggle('on', x === b)); });
+new ResizeObserver(drawOverlay).observe($('#stage'));
+
+/* ---------- 피드백 쓰기 ---------- */
+const memoEl = $('#memo');
+function renderChips() {
+  const box = $('#chips'), tl = box.querySelector('.tool');
+  box.replaceChildren(...TYPES.map(t => h('span', { class: 'chip' + (selType === t ? ' sel' : ''), style: `--c:${COLORS[t]}`, onclick: () => { selType = selType === t ? null : t; renderChips(); memoEl.focus(); } }, h('i'), t)), tl);
+}
+function renderHead() {
+  const sf = parseTime($('#tStart').value), ef = parseTime($('#tEnd').value);
+  let t = (sf != null && !isNaN(sf)) ? labelOf(sf) + (ef != null && !isNaN(ef) && ef > sf ? ' ~ ' + labelOf(ef) : '') + ' 에 남김  (타임코드 ' + tcOf(sf) + ')' : '시간을 적고 피드백을 남겨 주세요';
+  if (draftShapes.length) t += `  · ✏️ 그림 ${draftShapes.length}개`;
+  $('#head').textContent = t;
+}
+['#tStart', '#tEnd'].forEach(id => { $(id).addEventListener('input', renderHead); $(id).addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); memoEl.focus(); } }); });
+function setState(st, msg) {
+  const s = $('#state'), now = new Date().toTimeString().slice(0, 8);
+  const m = { saved: ['saved', `✓ 저장됨 ${now} (이 브라우저) — 다 남겼으면 📤 피드백 보내기`], error: ['error', '⚠ ' + (msg || '저장하지 못했어요')], draft: ['', '✎ 작성 중'] }[st] || ['', 'Enter로 남기기 · Shift+Enter 줄바꿈 · 남긴 피드백은 이 브라우저에 저장돼요'];
+  s.className = 'state ' + m[0]; s.textContent = m[1];
+}
+memoEl.addEventListener('input', () => setState(memoEl.value ? 'draft' : ''));
+memoEl.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); save(); } if (e.key === 'Escape') memoEl.blur(); });
+$('#saveBtn').onclick = save;
+function save() {
+  if (!video) return toast('먼저 영상을 불러와 주세요', true);
+  const memo = memoEl.value.trim();
+  if (!memo) { toast('내용을 적어 주세요', true); return memoEl.focus(); }
+  const sf = parseTime($('#tStart').value), ef = parseTime($('#tEnd').value);
+  if (sf == null || isNaN(sf)) { toast('고칠 곳의 시간을 적어 주세요 (예: 1:23)', true); return $('#tStart').focus(); }
+  if (isNaN(ef)) { toast('끝 시간 형식을 확인해 주세요 (예: 1:30)', true); return $('#tEnd').focus(); }
+  const author = $('#author').value.trim();
+  if (!author) { toast('이름을 먼저 적어 주세요 (위쪽)', true); return $('#author').focus(); }
+  if (drawMode) exitDraw();
+  items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), start_frame: sf, end_frame: ef != null && ef > sf ? ef : null,
+    type: selType || '기타', memo, author, drawing: draftShapes, created_at: new Date().toISOString() });
+  saveLocal();
+  memoEl.value = ''; $('#tEnd').value = ''; draftShapes = []; selType = null; renderChips(); renderHead(); drawOverlay(); renderAll(); setState('saved'); memoEl.blur();
 }
 
-// ---------- 편집자 홈 (GitHub Pages 첫 화면) ----------
-function home() {
-  var $ = function (x) { return document.querySelector(x); };
-  document.querySelector('.app').hidden = true; $('#home').hidden = false; document.title = '영상 피드백';
-  function say(id, t, k) { var m = $(id); m.className = 'msg ' + (k || ''); m.textContent = t; }
-  function toast(msg, err) { var t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(toast._t); toast._t = setTimeout(function () { t.className = 'toast'; }, 2500); }
-  function copy(t, okMsg) { return (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast(okMsg || '복사했어요'); }).catch(function () { prompt('복사해 주세요', t); }); }
-  function show() {
-    var ok = !!(EDITOR && EDITOR.url && EDITOR.key);
-    $('#hSetup').hidden = ok; $('#hOpen').hidden = !ok; $('#hList').hidden = !ok;
-    if (ok) { $('#hKeyShow').textContent = EDITOR.key; refresh(); }
-  }
-  $('#hSetBtn').onclick = function () {
-    $('#hSetup').hidden = !$('#hSetup').hidden;
-    if (EDITOR) { $('#hUrl').value = EDITOR.url || ''; $('#hKey').value = EDITOR.key || ''; $('#hDkey').value = EDITOR.dkey || ''; $('#hKeyBox').hidden = !EDITOR.key; $('#hKeyShow').textContent = EDITOR.key || ''; }
-  };
-  $('#hCode').onclick = function () {
-    fetch('Code.gs', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.text(); }).then(function (t) { copy(t, '코드를 복사했어요. Apps Script 편집기에 붙여넣으세요.'); })
-      .catch(function () { toast('코드를 불러오지 못했어요 — 저장소의 docs/Code.gs 를 열어 복사해 주세요', true); });
-  };
-  $('#hKeyCopy').onclick = function () { copy($('#hKeyShow').textContent, '연결 비밀키를 복사했어요'); };
-  $('#hConnect').onclick = function () {
-    var url = $('#hUrl').value.trim(), key = $('#hKey').value.trim(), dkey = $('#hDkey').value.trim();
-    var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-    if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url) && !(local && /^http:\/\/127\.0\.0\.1:\d+\/exec$/.test(url)))
-      return say('#hMsg', '웹 앱 URL이 아니에요 (https://script.google.com/macros/s/…/exec)', 'err');
-    if (!key) { var a = new Uint8Array(18); crypto.getRandomValues(a); key = Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
-    var conf = { url: url, key: key, dkey: dkey };
-    say('#hMsg', '연결 확인 중…');
-    editorCall('hello', {}, conf).then(function () { return dkey ? editorCall('settings', { drive_key: dkey }, conf) : null; }).then(function () {
-      EDITOR = conf; try { localStorage.setItem('fbEditor', JSON.stringify(conf)); } catch (e) {}
-      say('#hMsg', '연결됐어요!', 'ok'); $('#hKeyBox').hidden = false; $('#hKeyShow').textContent = key; show(); $('#hSetup').hidden = false;
-    }).catch(function (e) { say('#hMsg', e.message, 'err'); });
-  };
-  function driveId(u) { var m = /\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(u) || /[?&]id=([A-Za-z0-9_-]{10,})/.exec(u); return m ? m[1] : null; }
-  $('#hLink').addEventListener('change', function () {   // API 키가 있으면 드라이브 파일 이름으로 이름 채우기
-    var id = driveId(this.value); if (!id || !EDITOR || !EDITOR.dkey || $('#hName').value) return;
-    fetch('https://www.googleapis.com/drive/v3/files/' + id + '?fields=name&key=' + encodeURIComponent(EDITOR.dkey)).then(function (r) { return r.json(); })
-      .then(function (j) { if (j.name && !$('#hName').value) $('#hName').value = j.name.replace(/\.[^.]+$/, ''); }).catch(function () {});
-  });
-  $('#hGo').onclick = function () {
-    var id = driveId($('#hLink').value.trim()), name = $('#hName').value.trim().replace(/\.(mp4|mov|m4v|webm)$/i, '');
-    if (!id) return say('#hGoMsg', '구글 드라이브 공유 링크가 아니에요', 'err');
-    if (!name) return say('#hGoMsg', '영상 이름을 적어 주세요', 'err');
-    say('#hGoMsg', '여는 중…');
-    editorCall('project', { name: name, drive_id: id, fps: $('#hFps').value }).then(function (r) { location.href = linkFor(r.token); })
-      .catch(function (e) { say('#hGoMsg', e.message, 'err'); });
-  };
-  [$('#hLink'), $('#hName')].forEach(function (x) { x.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) $('#hGo').click(); }); });
-  function refresh() {
-    editorCall('projects', {}).then(function (r) {
-      var box = $('#hProjects'); box.innerHTML = '';
-      $('#hCnt').textContent = r.projects.length ? r.projects.length + '개' : '';
-      if (!r.projects.length) { box.innerHTML = '<p>아직 없어요. 위에서 영상 링크를 열어 보세요.</p>'; return; }
-      r.projects.slice().reverse().forEach(function (p) {
-        var row = document.createElement('div'); row.className = 'proj';
-        var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name;
-        var ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = '대기 ' + p.todo + ' · 전체 ' + p.total;
-        var op = document.createElement('a'); op.className = 'btn'; op.textContent = '열기'; op.href = linkFor(p.token);
-        var cp = document.createElement('button'); cp.className = 'btn'; cp.textContent = '🔗 고객 링크'; cp.onclick = function () { copy(linkFor(p.token), '고객 링크를 복사했어요'); };
-        row.appendChild(nm); row.appendChild(ct); row.appendChild(cp); row.appendChild(op); box.appendChild(row);
-      });
-    }).catch(function (e) { $('#hProjects').textContent = '목록을 불러오지 못했어요: ' + e.message; });
-  }
-  show();
+/* ---------- 목록 ---------- */
+function renderFilters() {
+  const n = { all: items.length, mine: items.filter(x => !x.received).length, recv: items.filter(x => x.received).length };
+  $('#filters').replaceChildren(...[['all', '전체'], ['mine', '내가 남김'], ['recv', '받은 피드백']].map(([k, label]) =>
+    h('button', { class: filter === k ? 'on' : '', text: `${label} ${n[k]}`, onclick: () => { filter = k; renderAll(); } })));
+  $('#cnt').textContent = items.length ? `전체 ${items.length}` : '';
 }
+function renderList() {
+  const list = $('#list');
+  const shown = items.filter(x => filter === 'all' || (filter === 'recv') === !!x.received).sort((a, b) => a.start_frame - b.start_frame || (a.created_at < b.created_at ? -1 : 1));
+  if (!video) return list.replaceChildren(h('div', { class: 'empty-list', text: '영상을 불러오면 여기에 피드백이 모여요.' }));
+  if (!shown.length) return list.replaceChildren(h('div', { class: 'empty-list', text: '아직 피드백이 없어요.\n플레이어에서 고칠 곳의 시간을 확인하고\n시간·내용을 적어 남겨 주세요.' }));
+  list.replaceChildren(...shown.map(it => {
+    const el = h('div', { class: 'item' + (activeId === it.id ? ' active' : ''), style: `--c:${COLORS[it.type] || COLORS['기타']}`, onclick: () => {
+      if (drawMode) return; activeId = activeId === it.id ? null : it.id; viewShapes = activeId && it.drawing && it.drawing.length ? it.drawing : null;
+      if (activeId) toast(`${labelOf(it.start_frame)} — 플레이어에서 이 시간으로 옮겨 확인하세요` + (it.drawing && it.drawing.length ? ' (그림이 화면에 표시돼요)' : ''));
+      drawOverlay(); renderList(); } },
+      h('div', { class: 'r1' }, h('span', { class: 't', title: '타임코드 ' + tcOf(it.start_frame) + (it.end_frame != null ? ' ~ ' + tcOf(it.end_frame) : ''), text: labelOf(it.start_frame) + (it.end_frame != null ? ' ~ ' + labelOf(it.end_frame) : '') }), h('span', { class: 'ty', text: it.type }),
+        it.received ? h('span', { class: 'badge', text: '받음' }) : null),
+      h('div', { class: 'memo', text: it.memo }),
+      h('div', { class: 'meta' }, h('span', { text: '👤 ' + (it.author || '') }), it.drawing && it.drawing.length ? h('span', { text: `✏️ 그림 ${it.drawing.length}` }) : null,
+        h('button', { text: '수정', onclick: e => { e.stopPropagation(); const m = prompt('피드백 수정', it.memo); if (m && m.trim()) { it.memo = m.trim(); saveLocal(); renderList(); } } }),
+        h('button', { text: '삭제', onclick: e => { e.stopPropagation(); if (confirm('이 피드백을 지울까요?')) { items = items.filter(x => x !== it); if (activeId === it.id) { activeId = null; viewShapes = null; drawOverlay(); } saveLocal(); renderAll(); } } })));
+    return el;
+  }));
+}
+function renderAll() { renderFilters(); renderList(); }
 
-function fatal(msg) {
-  document.querySelector('.app').innerHTML = '<p style="padding:40px;line-height:1.7;color:#a3acbd"></p>';
-  document.querySelector('.app p').textContent = msg;
+/* ---------- 창 ---------- */
+function openModal(...kids) { $('#mbox').replaceChildren(...kids); $('#modal').hidden = false; const f = $('#mbox').querySelector('input,textarea'); if (f) setTimeout(() => f.focus(), 0); }
+function closeModal() { $('#modal').hidden = true; }
+$('#modal').addEventListener('mousedown', e => { if (e.target.id === 'modal') closeModal(); });
+const msgEl = () => h('div', { class: 'msg' });
+const say = (el, t, k) => { el.className = 'msg ' + (k || ''); el.textContent = t; };
+
+function addDialog() {
+  const url = h('input', { placeholder: 'https://drive.google.com/file/d/…/view' });
+  const name = h('input', { placeholder: '예: intro_v2 (타임라인 FCPXML과 같은 이름이면 맥 도구에서 자동으로 짝지어져요)' });
+  const fps = h('select', {}, ...FPS.map(([v, l]) => h('option', { value: v, text: l })));
+  const msg = msgEl();
+  const go = () => {
+    const id = driveIdOf(url.value);
+    if (!id) return say(msg, '구글 드라이브 공유 링크가 아니에요 (예: https://drive.google.com/file/d/…/view)', 'err');
+    const n = name.value.trim().replace(/\.(mp4|mov|m4v|webm)$/i, '');
+    if (!n) return say(msg, '영상 이름을 적어 주세요', 'err');
+    closeModal(); openVideo({ id, name: n, fps: fps.value }); $('#banner').hidden = true; toast('불러왔어요 — 🔗 고객 링크로 고객에게 보내세요');
+  };
+  [url, name].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) go(); }));
+  const recent = store.get('fbw:recent') || [];
+  openModal(h('h3', { text: '구글 드라이브 영상 불러오기' }),
+    h('p', { text: '드라이브에서 영상 공유를 "링크가 있는 모든 사용자"로 바꾼 뒤 링크를 복사해 넣어 주세요. 영상 파일은 내려받지 않고 드라이브 플레이어로 바로 재생해요.' }),
+    h('label', {}, '공유 링크', url), h('label', {}, '영상 이름', name), h('label', {}, '프레임레이트', fps), msg,
+    recent.length ? h('div', { class: 'recent' }, h('p', { text: '최근 영상' }), ...recent.map(r => h('a', { href: linkFor(r) }, r.name, h('span', { text: new Date(r.at).toLocaleDateString() })))) : null,
+    h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '취소', onclick: closeModal }), h('button', { class: 'btn primary', text: '불러오기', onclick: go })));
 }
-(function start() {
-  if (BOOT) return main(BOOT);
-  var q = new URLSearchParams(location.search), p = q.get('p') || '', s = q.get('s') || window.FB_BACKEND || '';
-  if (!p) return home();
-  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  if (/^[A-Za-z0-9_-]{20,}$/.test(s)) BACKEND = 'https://script.google.com/macros/s/' + s + '/exec';
-  else if (/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(s) || (local && /^http:\/\/127\.0\.0\.1:\d+\/exec$/.test(s))) BACKEND = s;
-  if (!/^[A-Za-z0-9]{10,40}$/.test(p) || !BACKEND) return fatal('링크가 올바르지 않아요. 편집자에게 받은 주소 전체를 다시 열어 주세요.');
-  document.getElementById('title').textContent = '불러오는 중…';
-  backendCall('clientProject', [p]).then(main).catch(function (e) { fatal('영상 정보를 불러오지 못했어요 — ' + e.message); });
+$('#addBtn').onclick = addDialog;
+$('#shareBtn').onclick = () => {
+  if (!video) return toast('먼저 영상을 불러와 주세요', true);
+  const u = linkFor(video);
+  openModal(h('h3', { text: '고객 링크 — ' + video.name }),
+    h('p', { text: '고객은 이 링크로 영상을 보며 피드백을 남기고, 다 남긴 뒤 [📤 피드백 보내기]로 만든 링크를 보내 줘요. 그 링크를 여기서 [📥 받은 피드백 링크 열기]로 열면 고객이 표시한 내용(시간·메모·그림)이 그대로 보여요.' }),
+    h('div', { class: 'linkbox', text: u }),
+    h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '닫기', onclick: closeModal }), h('button', { class: 'btn primary', text: '링크 복사', onclick: () => copy(u, '고객 링크를 복사했어요') })));
+};
+$('#sendBtn').onclick = async () => {
+  if (!video) return toast('먼저 영상을 불러와 주세요', true);
+  const mine = items.filter(x => !x.received);
+  if (!mine.length) return toast('보낼 피드백이 없어요. 먼저 피드백을 남겨 주세요', true);
+  const data = await makePackage(mine);
+  const u = `${location.origin}${location.pathname}#fb=${data}`;
+  const share = navigator.share ? h('button', { class: 'btn', text: '공유…', onclick: () => navigator.share({ title: video.name + ' 피드백', url: u }).catch(() => {}) }) : null;
+  openModal(h('h3', { text: `📤 피드백 보내기 — ${mine.length}개` }),
+    h('p', { text: '아래 링크를 복사해서 편집자에게 카톡·문자·메일로 보내 주세요. 링크 안에 남긴 시간·메모·그림이 모두 들어 있어요 (서버에 저장되지 않아요).' }),
+    h('div', { class: 'linkbox', text: u }),
+    u.length > 8000 ? h('p', { style: 'color:#f5d28a', text: '링크가 길어요. 카톡에서 잘리면 그림을 조금 줄이거나 나눠서 보내 주세요.' }) : null,
+    h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '닫기', onclick: closeModal }), share, h('button', { class: 'btn primary', text: '링크 복사', onclick: () => copy(u, '피드백 링크를 복사했어요 — 편집자에게 보내 주세요') })));
+};
+$('#recvBtn').onclick = () => {
+  const ta = h('textarea', { rows: 4, placeholder: '고객이 보낸 피드백 링크(…#fb=…)를 붙여넣으세요' }), msg = msgEl();
+  const go = async () => {
+    const m = /#fb=([A-Za-z0-9_-]+)/.exec(ta.value.trim()) || /^([zj][A-Za-z0-9_-]+)$/.exec(ta.value.trim());
+    if (!m) return say(msg, '피드백 링크가 아니에요 (주소에 #fb= 가 있어야 해요)', 'err');
+    try { await receive(m[1]); closeModal(); } catch (e) { say(msg, '읽지 못했어요 — 링크가 잘렸는지 확인해 주세요 (' + e.message + ')', 'err'); }
+  };
+  openModal(h('h3', { text: '📥 받은 피드백 링크 열기' }), h('p', { text: '고객이 보낸 링크를 그냥 클릭해서 열어도 돼요. 여러 명이 보냈으면 하나씩 열면 목록에 모두 모여요.' }), ta, msg,
+    h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '닫기', onclick: closeModal }), h('button', { class: 'btn primary', text: '열기', onclick: go })));
+};
+
+/* ---------- 단축키 ---------- */
+window.addEventListener('keydown', e => {
+  if (!$('#modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === 'KeyD') { e.preventDefault(); drawMode ? exitDraw() : enterDraw(); }
+  else if (e.code === 'Escape' && drawMode) { e.preventDefault(); exitDraw(); }
+  else if (e.code === 'KeyT') { e.preventDefault(); $('#tStart').focus(); }
+  else if (e.code === 'KeyM' || e.code === 'KeyC') { e.preventDefault(); memoEl.focus(); }
+});
+
+window.addEventListener('hashchange', () => { const m = /#fb=([A-Za-z0-9_-]+)/.exec(location.hash); if (m) receive(m[1]).catch(() => toast('피드백 링크를 읽지 못했어요', true)); });
+
+/* ---------- 시작 ---------- */
+(async function start() {
+  $('#author').value = store.get('fbw:author') || '';
+  $('#author').addEventListener('input', () => store.set('fbw:author', $('#author').value.trim()));
+  renderChips(); renderHead(); renderAll();
+  const q = new URLSearchParams(location.search);
+  if (q.get('p')) { location.replace('sheet.html' + location.search); return; }   // 예전(구글 시트) 고객 링크
+  const fb = /#fb=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if (fb) { try { await receive(fb[1]); } catch (e) { toast('피드백 링크를 읽지 못했어요 — 링크가 잘렸는지 확인해 주세요', true); } return; }
+  const id = q.get('v');
+  if (id && /^[A-Za-z0-9_-]{10,}$/.test(id)) {
+    openVideo({ id, name: (q.get('n') || '영상').slice(0, 80), fps: FPS.some(f => f[0] === q.get('f')) ? q.get('f') : '30000/1001' }, { keepUrl: true });
+    const b = $('#banner'); b.className = 'banner info'; b.hidden = false;
+    b.replaceChildren('▶ 영상을 재생하다 고칠 곳에서 멈추고, 플레이어 아래 시간을 "시간" 칸에 적어 피드백을 남겨 주세요. 화면에 그려서 표시할 수도 있어요 (D). 다 남겼으면 오른쪽 📤 피드백 보내기!',
+      h('button', { class: 'btn ghost', text: '닫기', onclick: () => b.hidden = true }));
+  } else addDialog();
 })();
 </script>
 </body>

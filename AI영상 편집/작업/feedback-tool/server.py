@@ -39,7 +39,7 @@ import remote
 from fcpxml import nfc
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOL_VERSION = "2026.11.09-web"  # 바뀌면 fb.py open 이 예전 서버를 새 서버로 바꿔 켬
+TOOL_VERSION = "2026.11.09-weblink"  # 바뀌면 fb.py open 이 예전 서버를 새 서버로 바꿔 켬
 VIDEO_EXTS = (".mp4", ".mov", ".m4v", ".webm")
 SOURCE_EXTS = (".mov", ".mp4", ".m4v", ".mxf", ".avi", ".mkv", ".mp3", ".wav", ".aac", ".m4a",
                ".jpg", ".jpeg", ".png", ".heic", ".gif", ".psd")
@@ -672,6 +672,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/remote/drivekey":  # 고객 페이지 재생용 드라이브 API 키
                 info = remote.link_info(self.dirs, resolve_video(self.dirs, body.get("video")) or "") if body.get("video") else None
                 return self._json(remote.set_drive_key(self.dirs, body.get("key"), (info or {}).get("drive_id")))
+            if path == "/api/import/weblink":  # 고객이 웹 페이지에서 보낸 피드백 링크
+                return self._json(remote.import_weblink(self.dirs, body.get("text"), sys.modules[__name__]))
             if path == "/api/remote/pages":  # 고객 페이지 주소 (GitHub Pages)
                 return self._json(remote.set_pages(self.dirs, body.get("url")))
             if path == "/api/remote/code":  # 구글에 붙여넣을 코드

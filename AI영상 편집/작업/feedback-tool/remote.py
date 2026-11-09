@@ -278,16 +278,18 @@ def set_drive_key(d, key, drive_id=None):
     return info
 
 
-def setup(d, url):
-    """Apps Script 주소를 등록하고 연결 확인 (처음 연결한 맥의 비밀키를 구글 쪽이 기억해요)"""
+def setup(d, url, given_key=None):
+    """Apps Script 주소를 등록하고 연결 확인 (처음 연결한 쪽의 비밀키를 구글이 기억해요.
+    웹(GitHub Pages)에서 먼저 연결했으면 그 비밀키를 given_key로 넣어요)"""
     url = (url or "").strip()
+    given_key = (given_key or "").strip()
     ok = re.match(r"^https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec$", url)
     if not ok and not os.environ.get("FEEDBACK_REMOTE_TEST"):  # (자체 테스트 때만 다른 주소 허용)
         raise ValueError("Apps Script 웹 앱 주소가 아니에요 (https://script.google.com/macros/s/…/exec 형태)")
     with _lock:
         data = load_links(d)
         key = data["remote"].get("key") if data["remote"].get("url") == url else None
-        conf = {**data["remote"], "url": url, "key": key or secrets.token_urlsafe(24)}
+        conf = {**data["remote"], "url": url, "key": given_key or key or secrets.token_urlsafe(24)}
         res = call(d, "hello", conf=conf)
         data["remote"] = conf
         save_links(d, data)
@@ -324,8 +326,17 @@ def sync(d, video_actual, fb_api, force=True):
     _last_sync[name] = time.time()
     fb = fb_api.load_feedback(d, video_actual)
     by_remote = {it["remote_id"]: it for it in fb["items"] if it.get("remote_id")}
-    updates = [{"id": rid, "status": it.get("status", "todo")} for rid, it in by_remote.items()]
+    # 내 쪽에서 바뀐 상태만 알림 (웹 편집자 화면에서 바꾼 상태를 덮어쓰지 않게)
+    updates = [{"id": rid, "status": it.get("status", "todo")} for rid, it in by_remote.items()
+               if it.get("status", "todo") != it.get("synced_status")]
+    pushed = {u["id"] for u in updates}
     res = call(d, "sync", {"token": info["token"], "updates": updates, "known": list(by_remote)})
+    adopt = {}  # 웹에서 바뀐 상태 → 내 쪽에 반영
+    for row in res.get("items", []):
+        local = by_remote.get(row.get("id"))
+        if local and row.get("id") not in pushed and not row.get("deleted") and row.get("status") in ("todo", "done", "question", "skipped") \
+                and row["status"] != local.get("status"):
+            adopt[row["id"]] = row["status"]
     added = changed = removed = 0
     for row in res.get("items", []):
         rid = row.get("id")
@@ -343,10 +354,71 @@ def sync(d, video_actual, fb_api, force=True):
                 "snapshot": row.get("snapshot"),
                 "_extra": {"remote_id": rid, "origin": "client", "author": (row.get("author") or "고객")[:40]}})
             added += 1
+            if row.get("status") in ("done", "question", "skipped"):  # 웹에서 이미 상태를 바꾼 피드백
+                adopt[rid] = row["status"]
         elif local.get("status") == "todo" and row.get("memo") and row["memo"] != local.get("memo"):
             fb_api.update_item(d, video_actual, {"id": local["id"], "memo": row["memo"], "type": row.get("type")})
             changed += 1
+    # 동기화한 상태 기록 (+ 웹에서 바뀐 상태 반영)
+    with fb_api.file_lock(d):
+        fb = fb_api.load_feedback(d, video_actual)
+        for it in fb["items"]:
+            rid = it.get("remote_id")
+            if not rid:
+                continue
+            if rid in adopt:
+                it["status"] = adopt[rid]
+                it["claude_note"] = it.get("claude_note") or ("웹에서 편집자가 상태를 바꿈" if adopt[rid] != "todo" else "")
+                it["updated_at"] = fb_api.now_iso()
+                changed += 1
+            it["synced_status"] = it.get("status", "todo")
+        fb_api.save_feedback(d, video_actual, fb)
     return {"added": added, "changed": changed, "removed": removed, "client_url": client_url(d, info["token"])}
+
+
+_last_import = [0]
+
+
+def import_projects(d, force=False):
+    """웹(GitHub Pages)에서 연 영상도 맥 목록에 자동으로 추가 (구글 쪽 영상 목록을 가져옴)"""
+    conf = remote_conf(d)
+    if not (conf.get("url") and conf.get("key")):
+        return 0
+    if not force and time.time() - _last_import[0] < 60:
+        return 0
+    _last_import[0] = time.time()
+    res = call(d, "projects")
+    added = 0
+    with _lock:
+        data = load_links(d)
+        vids = data["videos"]
+        known = {v.get("token") for v in vids.values() if v.get("token")}
+        for p in res.get("projects", []):
+            if p["token"] in known:
+                continue
+            name = clean_name(p.get("name")) or "영상"
+            same = vids.get(name)
+            if same and not same.get("token") and same.get("drive_id") == p["drive_id"]:
+                same["token"] = p["token"]
+                continue
+            n, base = 2, name
+            while name in vids:
+                name, n = f"{base} ({n})", n + 1
+            vids[name] = {"drive_id": p["drive_id"], "fps": p.get("fps") if p.get("fps") in FPS_OK else None, "token": p["token"],
+                          "added_at": datetime.now().astimezone().isoformat(timespec="seconds"), "from": "web"}
+            added += 1
+        save_links(d, data)
+    return added
+
+
+def import_background(d):
+    def run():
+        try:
+            import_projects(d)
+        except Exception:
+            pass
+    if time.time() - _last_import[0] >= 60:
+        threading.Thread(target=run, daemon=True).start()
 
 
 def sync_background(d, video_actual, fb_api):

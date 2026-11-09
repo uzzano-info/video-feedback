@@ -39,7 +39,7 @@ import remote
 from fcpxml import nfc
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOL_VERSION = "2026.11.09-remote2"  # 바뀌면 fb.py open 이 예전 서버를 새 서버로 바꿔 켬
+TOOL_VERSION = "2026.11.09-web"  # 바뀌면 fb.py open 이 예전 서버를 새 서버로 바꿔 켬
 VIDEO_EXTS = (".mp4", ".mov", ".m4v", ".webm")
 SOURCE_EXTS = (".mov", ".mp4", ".m4v", ".mxf", ".avi", ".mkv", ".mp3", ".wav", ".aac", ".m4a",
                ".jpg", ".jpeg", ".png", ".heic", ".gif", ".psd")
@@ -668,7 +668,7 @@ class Handler(BaseHTTPRequestHandler):
                 name = remote.add_link(self.dirs, body.get("url"), body.get("name"), body.get("fps"))
                 return self._json({"ok": True, "video": name})
             if path == "/api/remote/setup":  # 고객 피드백 연결 (Apps Script 주소)
-                return self._json(remote.setup(self.dirs, body.get("url")))
+                return self._json(remote.setup(self.dirs, body.get("url"), body.get("key")))
             if path == "/api/remote/drivekey":  # 고객 페이지 재생용 드라이브 API 키
                 info = remote.link_info(self.dirs, resolve_video(self.dirs, body.get("video")) or "") if body.get("video") else None
                 return self._json(remote.set_drive_key(self.dirs, body.get("key"), (info or {}).get("drive_id")))
@@ -739,6 +739,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _state(self):
         d = self.dirs
+        remote.import_background(d)  # 웹에서 연 영상 가져오기 (1분에 한 번)
         vids = []
         for v in sorted(list_video_files(d), key=lambda v: v["name"].lower()):
             tname = fcpxml.find_timeline(d.timeline, v["actual"])

@@ -1055,6 +1055,7 @@ async function setupDialog() {
   const url = h('input', { placeholder: 'https://script.google.com/macros/s/…/exec' });
   const msg = msgEl();
   const keyIn = h('input', { placeholder: 'AIza…' }), keyMsg = msgEl();
+  const keyGiven = h('input', { placeholder: '비워 두면 새로 만들어요' });
   const pagesIn = h('input', { placeholder: 'https://아이디.github.io/video-feedback/' }), pagesMsg = msgEl();
   pagesIn.value = (state.remote && state.remote.pages_url) || '';
   const savePages = async () => {
@@ -1077,7 +1078,7 @@ async function setupDialog() {
   const connect = async () => {
     say(msg, '연결 확인 중…');
     try {
-      const r = await api('/api/remote/setup', { url: url.value });
+      const r = await api('/api/remote/setup', { url: url.value, key: keyGiven.value });
       await loadState(true);
       say(msg, '연결됐어요! 피드백은 구글 드라이브의 "영상 피드백 (고객사)" 시트에 저장돼요.', 'ok');
       setTimeout(() => { const m = state.videos.find(x => x.name === cur) || {}; if (m.url) shareDialog(m); else closeModal(); }, 1200);
@@ -1093,7 +1094,8 @@ async function setupDialog() {
       h('li', { text: '④ 다음 사용자로 실행: 나 · 액세스 권한이 있는 사용자: 모든 사용자 → [배포]' }),
       h('li', { text: '⑤ 권한 허용 창이 뜨면 내 계정 선택 → [고급] → [(안전하지 않은) 페이지로 이동] → [허용]  (내가 만든 코드라서 나오는 안내예요)' }),
       h('li', { text: '⑥ 나온 웹 앱 URL(…/exec)을 아래에 붙여넣기' })),
-    h('label', {}, '웹 앱 URL', url), msg,
+    h('label', {}, '웹 앱 URL', url),
+    h('label', {}, '연결 비밀키 (웹 페이지에서 먼저 연결했으면 그 키를 넣기 — 아니면 비워 두기)', keyGiven), msg,
     h('div', { class: 'mrow' }, h('button', { class: 'btn ghost', text: '닫기', onclick: closeModal }), h('button', { class: 'btn primary', text: '연결', onclick: connect })),
     h('h3', { style: 'margin-top:8px', text: '고객 페이지 주소 (선택)' }),
     h('p', { text: '고객 페이지를 GitHub Pages에 올렸으면 그 주소를 넣어 주세요. 고객 링크가 그 주소로 만들어져요 (구글 "Apps Script 사용자가 만든 앱" 안내 줄이 없어요). 비우면 구글 Apps Script 페이지를 써요.' }),

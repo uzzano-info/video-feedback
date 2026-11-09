@@ -205,11 +205,35 @@ function handle_(req) {
     return { ok: true };
   }
 
-  if (req.action === 'project') {   // 고객 링크 만들기 (있으면 이름·영상만 갱신)
+  if (req.action === 'projects') {   // 영상 목록 (편집자 홈 · 맥 도구가 가져감)
+    var ss = book_();
+    var fb = rows_(ss.getSheetByName('feedback'), F_COLS).filter(function (r) { return !r.deleted; });
+    var list = rows_(ss.getSheetByName('projects'), P_COLS).map(function (p) {
+      var mine = fb.filter(function (r) { return String(r.token) === String(p.token); });
+      return { token: String(p.token), name: String(p.name), drive_id: String(p.drive_id), fps: String(p.fps), created_at: String(p.created_at),
+               total: mine.length, todo: mine.filter(function (r) { return (r.status || 'todo') === 'todo'; }).length };
+    });
+    return { ok: true, projects: list };
+  }
+
+  if (req.action === 'setstatus') {   // 편집자 홈에서 상태 바꾸기
+    if (STATUSES.indexOf(req.status) < 0) throw new Error('상태 값이 올바르지 않아요');
+    return withLock_(function () {
+      var sh = book_().getSheetByName('feedback');
+      var r = rows_(sh, F_COLS).filter(function (x) { return String(x.token) === String(req.token) && String(x.id) === String(req.id); })[0];
+      if (!r) throw new Error('피드백을 찾을 수 없어요');
+      setCells_(sh, r._row, F_COLS, { status: req.status, updated_at: now_() });
+      return { ok: true };
+    });
+  }
+
+  if (req.action === 'project') {   // 고객 링크 만들기 (있으면 이름·영상만 갱신, 같은 영상·이름이면 그 링크 재사용)
     if (!req.drive_id) throw new Error('드라이브 영상 ID가 없어요');
     return withLock_(function () {
       var sh = book_().getSheetByName('projects');
-      var p = req.token ? rows_(sh, P_COLS).filter(function (x) { return String(x.token) === String(req.token); })[0] : null;
+      var all = rows_(sh, P_COLS);
+      var p = req.token ? all.filter(function (x) { return String(x.token) === String(req.token); })[0]
+        : all.filter(function (x) { return String(x.drive_id) === String(req.drive_id) && String(x.name) === String(req.name || '영상'); })[0];
       var vals = { name: text_(req.name || '영상', 100), drive_id: String(req.drive_id), fps: String(req.fps || '30/1') };
       if (p) { setCells_(sh, p._row, P_COLS, vals); return { ok: true, token: String(p.token) }; }
       var token = Utilities.getUuid().replace(/-/g, '').slice(0, 24);

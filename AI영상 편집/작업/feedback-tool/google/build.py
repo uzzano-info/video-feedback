@@ -20,4 +20,5 @@ if len(sys.argv) > 2:  # GitHub Pages: 영상 정보는 주소(?p=…&s=…)로 
     if not os.path.exists(cfg):
         open(cfg, "w", encoding="utf-8").write("// 구글 Apps Script 배포 ID(AKfy…)를 넣으면 고객 링크에서 &s=… 를 생략할 수 있어요\nwindow.FB_BACKEND = '';\n")
     open(os.path.join(pages, ".nojekyll"), "w").close()
+    open(os.path.join(pages, "Code.gs"), "w", encoding="utf-8").write(out)  # 편집자 홈의 "코드 복사"용
     print(pages, "index.html", len(page))

@@ -328,6 +328,12 @@ def notify_client(video, it):
 
 
 def cmd_sync(args):
+    try:
+        n = remote.import_projects(D, force=True)
+        if n:
+            print(f"웹에서 연 영상 {n}개를 목록에 추가했어요")
+    except remote.RemoteError as e:
+        print(f"영상 목록을 가져오지 못했어요 — {e}")
     targets = [resolve_video(args.video)] if args.video else [v["actual"] for v in videos() if remote.is_link(v["actual"])]
     any_ = False
     for actual in targets:
